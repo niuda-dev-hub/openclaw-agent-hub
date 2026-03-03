@@ -1,8 +1,8 @@
 export function Leaderboard() {
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Leaderboard</h2>
-      <p>占位：后续接入 /api/v0.1/tasks/{'{task_id}'}/leaderboard。</p>
+    <div className="panel">
+      <div className="h1">Leaderboard</div>
+      <div style={{ color: 'var(--muted)' }}>v0.1 先占位，后续接 /api/v0.1/tasks/&lt;task_id&gt;/leaderboard。</div>
     </div>
   )
 }

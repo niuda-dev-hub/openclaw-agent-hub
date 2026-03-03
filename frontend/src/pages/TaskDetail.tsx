@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import { apiGet } from '../api/client'
+import { fmtTime, shortId, statusClass } from '../lib/format'
 
 type TaskRead = {
   id: string
@@ -9,11 +10,16 @@ type TaskRead = {
   status: string
   created_at: number
   updated_at: number
+  expected_output_type?: string
 }
 
 type SubmissionRead = Record<string, unknown>
 type EvaluationRead = Record<string, unknown>
 type DecisionRead = Record<string, unknown>
+
+function JsonBlock({ value }: { value: unknown }) {
+  return <pre>{JSON.stringify(value, null, 2)}</pre>
+}
 
 export function TaskDetail() {
   const { taskId } = useParams()
@@ -45,45 +51,82 @@ export function TaskDetail() {
   }, [taskId])
 
   return (
-    <div style={{ padding: 16 }}>
-      <h2>Task Detail</h2>
-      {err ? <pre style={{ color: 'crimson' }}>{err}</pre> : null}
+    <div style={{ display: 'grid', gap: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div>
+          <div className="h1" style={{ margin: 0 }}>
+            Task Detail
+          </div>
+          <div style={{ color: 'var(--muted)', fontFamily: 'var(--mono)', fontSize: 12 }}>id: {taskId}</div>
+        </div>
+        <Link to="/tasks">← Back to Tasks</Link>
+      </div>
 
-      <section style={{ marginTop: 12 }}>
-        <h3>Task</h3>
+      {err ? <div className="error">{err}</div> : null}
+
+      <div className="panel">
+        <div className="h1">Task</div>
         {task ? (
-          <pre style={{ background: '#fafafa', padding: 12, overflow: 'auto' }}>{JSON.stringify(task, null, 2)}</pre>
-        ) : (
-          <p>loading...</p>
-        )}
-      </section>
+          <div className="kv">
+            <div className="k">title</div>
+            <div className="v">{task.title}</div>
 
-      <section style={{ marginTop: 12 }}>
-        <h3>Submissions</h3>
-        {subs ? (
-          <pre style={{ background: '#fafafa', padding: 12, overflow: 'auto' }}>{JSON.stringify(subs, null, 2)}</pre>
-        ) : (
-          <p>loading...</p>
-        )}
-      </section>
+            <div className="k">status</div>
+            <div className="v">
+              <span className={`badge ${statusClass(task.status)}`}>{task.status}</span>
+            </div>
 
-      <section style={{ marginTop: 12 }}>
-        <h3>Evaluations</h3>
-        {evals ? (
-          <pre style={{ background: '#fafafa', padding: 12, overflow: 'auto' }}>{JSON.stringify(evals, null, 2)}</pre>
-        ) : (
-          <p>loading...</p>
-        )}
-      </section>
+            <div className="k">created</div>
+            <div className="v">{fmtTime(task.created_at)}</div>
 
-      <section style={{ marginTop: 12 }}>
-        <h3>Decision</h3>
-        {decision ? (
-          <pre style={{ background: '#fafafa', padding: 12, overflow: 'auto' }}>{JSON.stringify(decision, null, 2)}</pre>
+            <div className="k">updated</div>
+            <div className="v">{fmtTime(task.updated_at)}</div>
+
+            <div className="k">expected_output_type</div>
+            <div className="v">{task.expected_output_type ?? '-'}</div>
+
+            <div className="k">id</div>
+            <div className="v">{task.id}</div>
+
+            <div className="k">prompt</div>
+            <div className="v">{task.prompt}</div>
+          </div>
         ) : (
-          <p>loading...</p>
+          <div style={{ color: 'var(--muted)' }}>loading...</div>
         )}
-      </section>
+
+        {task ? (
+          <details style={{ marginTop: 12 }}>
+            <summary>raw JSON</summary>
+            <div style={{ marginTop: 8 }}>
+              <JsonBlock value={task} />
+            </div>
+          </details>
+        ) : null}
+      </div>
+
+      <div className="split">
+        <div className="panel">
+          <div className="h1">Submissions</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>count: {subs ? subs.length : '-'}</div>
+          {subs ? <JsonBlock value={subs} /> : <div style={{ color: 'var(--muted)' }}>loading...</div>}
+        </div>
+
+        <div className="panel">
+          <div className="h1">Evaluations</div>
+          <div style={{ color: 'var(--muted)', fontSize: 12, marginBottom: 8 }}>count: {evals ? evals.length : '-'}</div>
+          {evals ? <JsonBlock value={evals} /> : <div style={{ color: 'var(--muted)' }}>loading...</div>}
+        </div>
+      </div>
+
+      <div className="panel">
+        <div className="h1">Decision</div>
+        {decision ? <JsonBlock value={decision} /> : <div style={{ color: 'var(--muted)' }}>loading...</div>}
+      </div>
+
+      <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+        tip: IDs are shortened in list view (e.g. {shortId('1234567890abcdef', 8)}).
+      </div>
     </div>
   )
 }
