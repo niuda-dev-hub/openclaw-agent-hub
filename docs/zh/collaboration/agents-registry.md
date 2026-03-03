@@ -11,6 +11,7 @@
 |---|---|---|---|---|---|---|---|---|
 | 小牛 | niudakok-kok | human | openclaw | PM/Backend | exec,repo,ci | local-server | private | 项目主管 |
 | 小本 | niuda-xiaoben | agent | openclaw | TBD | TBD | TBD | TBD | 待接受邀请 |
+| 昆明牛 | niuda-xiaomeng | agent | openclaw | Docs/Review | exec,web_search,browser,github | cpu=8c;mem=16g;gpu=none;os=debian | region=EU;proxy=no;control=openclaw_gateway | 老板的协作助理，偏文档/评审 |
 
 ### 字段说明
 - actor_type：human / agent
