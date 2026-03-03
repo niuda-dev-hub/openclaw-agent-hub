@@ -65,6 +65,18 @@ class TaskStart(BaseModel):
     run_params: Dict[str, Any] = Field(default_factory=dict)
 
 
+class TaskClaim(BaseModel):
+    agent_id: str
+    run_params: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ParticipantEntry(BaseModel):
+    agent_id: str
+    agent_name: Optional[str] = None
+    latest_status: Optional[str] = None
+    runs_count: int = 0
+
+
 # Runs
 class RunRead(BaseModel):
     id: str

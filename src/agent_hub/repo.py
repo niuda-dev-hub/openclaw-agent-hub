@@ -203,6 +203,108 @@ def create_runs(task_id: str, agent_ids: List[str], run_params: Dict[str, Any], 
     return [r for r in out if r]
 
 
+def fetch_queued_runs(limit: int = 10, db_path=None) -> List[Dict[str, Any]]:
+    """Fetch queued runs in FIFO order."""
+
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id FROM runs WHERE status='queued' ORDER BY queued_at ASC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        run = get_run(r[0], db_path=db_path)
+        if run:
+            out.append(run)
+    return out
+
+
+def mark_run_running(run_id: str, db_path=None) -> Optional[Dict[str, Any]]:
+    """Atomically transition queued->running."""
+
+    _ensure_schema(db_path)
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE runs SET status='running', started_at=?, error_message=NULL "
+            "WHERE id=? AND status='queued'",
+            (ts, run_id),
+        )
+        if cur.rowcount == 0:
+            return None
+    return get_run(run_id, db_path=db_path)
+
+
+def mark_run_finished(run_id: str, usage: Dict[str, Any] | None = None, db_path=None) -> Optional[Dict[str, Any]]:
+    _ensure_schema(db_path)
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "UPDATE runs SET status='finished', finished_at=?, usage_json=? WHERE id=?",
+            (ts, dumps(usage or {}), run_id),
+        )
+    return get_run(run_id, db_path=db_path)
+
+
+def mark_run_failed(run_id: str, error_message: str, db_path=None) -> Optional[Dict[str, Any]]:
+    _ensure_schema(db_path)
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "UPDATE runs SET status='failed', finished_at=?, error_message=? WHERE id=?",
+            (ts, error_message, run_id),
+        )
+    return get_run(run_id, db_path=db_path)
+
+
+def get_active_run_for_agent(task_id: str, agent_id: str, db_path=None) -> Optional[Dict[str, Any]]:
+    """Return an active run for (task,agent) if any (queued/running)."""
+
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT id FROM runs WHERE task_id=? AND agent_id=? AND status IN ('queued','running') "
+            "ORDER BY queued_at DESC LIMIT 1",
+            (task_id, agent_id),
+        ).fetchone()
+    if not row:
+        return None
+    return get_run(row[0], db_path=db_path)
+
+
+def list_participants(task_id: str, db_path=None) -> List[Dict[str, Any]]:
+    """List participants for a task, aggregated by agent."""
+
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT agent_id, COUNT(*) AS runs_count, MAX(queued_at) AS last_queued_at "
+            "FROM runs WHERE task_id=? GROUP BY agent_id ORDER BY last_queued_at DESC",
+            (task_id,),
+        ).fetchall()
+
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        aid = r["agent_id"]
+        # Find latest run status for this agent
+        with get_conn(db_path) as conn:
+            last = conn.execute(
+                "SELECT status FROM runs WHERE task_id=? AND agent_id=? ORDER BY queued_at DESC LIMIT 1",
+                (task_id, aid),
+            ).fetchone()
+        a = get_agent(aid, db_path=db_path)
+        out.append(
+            {
+                "agent_id": aid,
+                "agent_name": a["name"] if a else None,
+                "latest_status": last["status"] if last else None,
+                "runs_count": int(r["runs_count"]),
+            }
+        )
+    return out
+
+
 def list_runs(task_id: str, db_path=None) -> List[Dict[str, Any]]:
     _ensure_schema(db_path)
     with get_conn(db_path) as conn:

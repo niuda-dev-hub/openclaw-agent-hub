@@ -12,6 +12,8 @@ from .schemas import (
     TaskRead,
     TaskUpdate,
     TaskStart,
+    TaskClaim,
+    ParticipantEntry,
     RunRead,
     SubmissionCreate,
     SubmissionRead,
@@ -108,6 +110,43 @@ def api_start_task(task_id: str, body: TaskStart):
     runs = repo.create_runs(task_id, body.agent_ids, body.run_params)
     repo.add_event(task_id, "task_started", payload={"task_id": task_id, "agent_ids": body.agent_ids})
     return runs
+
+
+@app.post("/api/v0.1/tasks/{task_id}/claim", response_model=RunRead)
+def api_claim_task(task_id: str, body: TaskClaim):
+    t = repo.get_task(task_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="task_not_found")
+    a = repo.get_agent(body.agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+
+    active = repo.get_active_run_for_agent(task_id, body.agent_id)
+    if active:
+        # idempotent: claiming again returns current active run
+        return active
+
+    # Ensure task is running/open once someone participates
+    if t.get("status") in ("draft", "open"):
+        repo.update_task(task_id, {"status": "running"})
+
+    run = repo.create_runs(task_id, [body.agent_id], body.run_params)[0]
+    repo.add_event(
+        task_id,
+        "claimed",
+        actor_type="agent",
+        actor_id=body.agent_id,
+        payload={"task_id": task_id, "run_id": run["id"]},
+    )
+    return run
+
+
+@app.get("/api/v0.1/tasks/{task_id}/participants", response_model=list[ParticipantEntry])
+def api_list_participants(task_id: str):
+    t = repo.get_task(task_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="task_not_found")
+    return repo.list_participants(task_id)
 
 
 @app.post("/api/v0.1/tasks/{task_id}/runs", response_model=list[RunRead])
