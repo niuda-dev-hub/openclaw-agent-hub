@@ -6,7 +6,7 @@
 - 敏感信息与公开前清理规范：`collaboration/secrets-policy.md`
 
 ## API
-- （待补）OpenAPI 与接口说明：`api/`
+- API 文档索引与 OpenAPI 使用说明：`api/README.md`
 
 ## 设计（Design）
 - （待补）架构与数据模型：`design/`
@@ -17,4 +17,3 @@
 
 ## ADR
 - 架构决策记录：`adr/`
-
