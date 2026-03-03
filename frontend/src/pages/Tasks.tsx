@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { apiGet } from '../api/client'
 
 type TaskRead = {
@@ -28,6 +29,7 @@ export function Tasks() {
           <tr>
             <th align="left">title</th>
             <th align="left">status</th>
+            <th align="left">detail</th>
             <th align="left">id</th>
           </tr>
         </thead>
@@ -36,6 +38,9 @@ export function Tasks() {
             <tr key={t.id} style={{ borderTop: '1px solid #eee' }}>
               <td>{t.title}</td>
               <td>{t.status}</td>
+              <td>
+                <Link to={`/tasks/${t.id}`}>open</Link>
+              </td>
               <td style={{ fontFamily: 'monospace', fontSize: 12 }}>{t.id}</td>
             </tr>
           ))}
