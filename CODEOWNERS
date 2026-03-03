@@ -1,0 +1,7 @@
+# Code owners (minimal)
+
+# Collaboration/security docs should be reviewed by project owner
+/docs/zh/collaboration/ @niudakok-kok
+
+# Default (fallback)
+* @niudakok-kok

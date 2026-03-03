@@ -110,6 +110,8 @@ Closes #<issue号>
 
 ### 4.3 合并方式
 - 使用 **Squash and merge**（保持线性历史）。
+- PR 必须填写 `.github/pull_request_template.md`（仓库内置模板）。
+- `docs/zh/collaboration/*` 相关变更建议由项目主管 review（见 CODEOWNERS）。
 
 ---
 
