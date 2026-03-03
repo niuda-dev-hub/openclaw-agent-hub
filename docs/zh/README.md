@@ -12,6 +12,7 @@
 - （待补）架构与数据模型：`design/`
 
 ## 开发（Development）
+- Quickstart（5 分钟上手）：`dev/quickstart.md`
 - 项目开发规范：`软件项目开发规范.md`
 
 ## ADR
