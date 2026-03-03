@@ -17,19 +17,19 @@
 
 如果你是**第一次接触本项目**，推荐阅读顺序：
 
-1. 先看 `docs/zh/dev/quickstart.md`，按文档把服务在本地跑起来；
+1. 先看 `docs/zh/development/dev/quickstart.md`，按文档把服务在本地跑起来；
 2. 浏览 `http://127.0.0.1:8000/docs`，了解有哪些路由与资源；
 3. 如需集成到自己的系统或生成 SDK，下载 `openapi.json` 并在你熟悉的语言中使用 OpenAPI 代码生成工具。
 
 ### 与文档目录的关系
 
 - 本页：`docs/zh/api/README.md` —— 描述 API 文档入口、阅读顺序与示例；
-- 快速开始：`docs/zh/dev/quickstart.md` —— 负责「如何跑起来」；
+- 快速开始：`docs/zh/development/dev/quickstart.md` —— 负责「如何跑起来」；
 - 设计/数据模型：未来会在 `docs/zh/design/` 下补充更详细的 schema 与时序说明。
 
 ## 二、本地启动服务（Quickstart 摘要）
 
-完整步骤以 `docs/zh/dev/quickstart.md` 为准，这里仅给出与 API 相关的最小流程，帮助你快速对接：
+完整步骤以 `docs/zh/development/dev/quickstart.md` 为准，这里仅给出与 API 相关的最小流程，帮助你快速对接：
 
 1. 克隆仓库并进入目录：
 
@@ -57,7 +57,7 @@
    - 交互式文档：`http://127.0.0.1:8000/docs`
    - OpenAPI JSON：`http://127.0.0.1:8000/openapi.json`
 
-如上述命令与你当前的 Quickstart 不一致，以 `docs/zh/dev/quickstart.md` 为准；本页会在接口形态与启动方式稳定后保持同步更新。
+如上述命令与你当前的 Quickstart 不一致，以 `docs/zh/development/dev/quickstart.md` 为准；本页会在接口形态与启动方式稳定后保持同步更新。
 
 ## 三、主要资源与接口分组（v0.1）
 
