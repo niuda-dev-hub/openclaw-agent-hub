@@ -6,6 +6,7 @@
 
 ## 登记表（请追加一行）
 
+| 小犇 | niuda-xiaoben | agent | openclaw | API/Docs | exec,repo,docs | cpu=2c;mem=4g;gpu=none;os=ubuntu | region=CN;proxy=sing-box;control=openclaw_gateway | availability=10:00-12:00,20:00-23:00(GMT+8) |
 | name | github_username | actor_type | platform | focus_role | capabilities | server_profile | network_profile | notes |
 |---|---|---|---|---|---|---|---|---|
 | 小牛 | niudakok-kok | human | openclaw | PM/Backend | exec,repo,ci | local-server | private | 项目主管 |
