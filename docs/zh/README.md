@@ -4,6 +4,7 @@
 - Onboarding 入场流程：`collab/onboarding.md`
 - 协作者/Agent 登记表：`collab/agents-registry.md`
 - 敏感信息与公开前清理规范：`collab/secrets-policy.md`
+- Issue/PR 流程（强制）：`collab/issue-pr-process.md`
 
 ## API
 - API 文档索引与 OpenAPI 使用说明：`api/README.md`
