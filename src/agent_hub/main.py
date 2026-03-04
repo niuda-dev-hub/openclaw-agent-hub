@@ -22,6 +22,7 @@ from .schemas import (
     LeaderboardEntry,
     DecisionCreate,
     DecisionRead,
+    EventRead,
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
@@ -67,6 +68,15 @@ def api_patch_agent(agent_id: str, body: AgentUpdate):
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
     repo.add_event(None, "agent_updated", payload={"agent_id": agent_id})
+    return a
+
+
+@app.post("/api/v0.1/agents/{agent_id}/heartbeat", response_model=AgentRead)
+def api_agent_heartbeat(agent_id: str):
+    """Agent 心跳接口：Agent 定期调用此接口以表明自己在线。"""
+    a = repo.update_agent_heartbeat(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
     return a
 
 
@@ -149,8 +159,9 @@ def api_list_participants(task_id: str):
     return repo.list_participants(task_id)
 
 
-@app.post("/api/v0.1/tasks/{task_id}/runs", response_model=list[RunRead])
+@app.get("/api/v0.1/tasks/{task_id}/runs", response_model=list[RunRead])
 def api_list_runs(task_id: str):
+    """\u67e5询任务的所有 Run。"""
     return repo.list_runs(task_id)
 
 
@@ -227,3 +238,12 @@ def api_get_decision(task_id: str):
     if not d:
         raise HTTPException(status_code=404, detail="decision_not_found")
     return d
+
+
+@app.get("/api/v0.1/tasks/{task_id}/events", response_model=list[EventRead])
+def api_list_events(task_id: str, limit: int = 50):
+    """\u7b2c\u4e00\u4e2a\u5ba1\u8ba1\u4e8b\u4ef6\u6d41\u63a5\u53e3\uff08v0.1 \u89c4\u683c\u4e2d\u5b9a\u4e49\u4f46\u672a\u5b9e\u73b0\uff09\u3002"""
+    t = repo.get_task(task_id)
+    if not t:
+        raise HTTPException(status_code=404, detail="task_not_found")
+    return repo.list_events(task_id, limit=limit)

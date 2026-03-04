@@ -20,6 +20,8 @@ class AgentRead(BaseModel):
     config: Dict[str, Any] = Field(default_factory=dict)
     is_enabled: bool = True
     created_at: int
+    # last_heartbeat_at 为 None 表示从未上报心跳
+    last_heartbeat_at: Optional[int] = None
 
 
 class AgentUpdate(BaseModel):
@@ -151,4 +153,15 @@ class DecisionRead(BaseModel):
     winner_submission_id: str
     decided_by: Optional[str] = None
     rationale: Optional[str] = None
+    created_at: int
+
+
+# 审计事件
+class EventRead(BaseModel):
+    id: str
+    task_id: Optional[str] = None
+    event_type: str
+    actor_type: str
+    actor_id: Optional[str] = None
+    payload: Dict[str, Any] = Field(default_factory=dict)
     created_at: int

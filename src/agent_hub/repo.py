@@ -59,6 +59,7 @@ def list_agents(db_path=None) -> List[Dict[str, Any]]:
                 "config": loads(r["config_json"], {}),
                 "is_enabled": bool(r["is_enabled"]),
                 "created_at": r["created_at"],
+                "last_heartbeat_at": r["last_heartbeat_at"] if "last_heartbeat_at" in r.keys() else None,
             }
         )
     return out
@@ -78,6 +79,7 @@ def get_agent(agent_id: str, db_path=None) -> Optional[Dict[str, Any]]:
         "config": loads(r["config_json"], {}),
         "is_enabled": bool(r["is_enabled"]),
         "created_at": r["created_at"],
+        "last_heartbeat_at": r["last_heartbeat_at"] if "last_heartbeat_at" in r.keys() else None,
     }
 
 
@@ -493,3 +495,39 @@ def add_event(task_id: str | None, event_type: str, actor_type: str = "system", 
             "INSERT INTO events(id,task_id,event_type,actor_type,actor_id,payload_json,created_at) VALUES(?,?,?,?,?,?,?)",
             (ev_id, task_id, event_type, actor_type, actor_id, dumps(payload or {}), ts),
         )
+
+
+def list_events(task_id: str, limit: int = 50, db_path=None) -> List[Dict[str, Any]]:
+    """查询指定任务的审计事件列表（按时间倒序）。"""
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT * FROM events WHERE task_id=? ORDER BY created_at DESC LIMIT ?",
+            (task_id, int(limit)),
+        ).fetchall()
+    return [
+        {
+            "id": r["id"],
+            "task_id": r["task_id"],
+            "event_type": r["event_type"],
+            "actor_type": r["actor_type"],
+            "actor_id": r["actor_id"],
+            "payload": loads(r["payload_json"], {}),
+            "created_at": r["created_at"],
+        }
+        for r in rows
+    ]
+
+
+def update_agent_heartbeat(agent_id: str, db_path=None) -> Optional[Dict[str, Any]]:
+    """更新 Agent 心跳时间戳，用于在线状态判断。"""
+    _ensure_schema(db_path)
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        cur = conn.execute(
+            "UPDATE agents SET last_heartbeat_at=? WHERE id=?",
+            (ts, agent_id),
+        )
+        if cur.rowcount == 0:
+            return None
+    return get_agent(agent_id, db_path=db_path)

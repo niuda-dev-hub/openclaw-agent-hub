@@ -152,8 +152,18 @@ def _init_schema(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_events_task ON events(task_id);")
 
 
+def _v2_agent_heartbeat(conn):
+    """Migration v2: 给 agents 表添加 last_heartbeat_at 列，用于心跳/在线状态。"""
+    # 如果列已存在则忽略错误（SQLite 不支持 IF NOT EXISTS for column）
+    try:
+        conn.execute("ALTER TABLE agents ADD COLUMN last_heartbeat_at INTEGER")
+    except Exception:
+        pass  # 列已存在，忽略
+
+
 MIGRATIONS = [
     Migration(version=1, name="init", up=_init_schema),
+    Migration(version=2, name="agent_heartbeat", up=_v2_agent_heartbeat),
 ]
 
 
