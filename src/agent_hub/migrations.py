@@ -161,9 +161,75 @@ def _v2_agent_heartbeat(conn):
         pass  # 列已存在，忽略
 
 
+def _v3_projects_and_ledger(conn):
+    """Migration v3: add projects + points ledger tables (foundation for incentives)."""
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS projects (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          publisher_type TEXT NOT NULL,
+          publisher_id TEXT NOT NULL,
+          stake_points INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_publisher ON projects(publisher_type, publisher_id);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);")
+
+    # Append-only ledger: balance = SUM(delta)
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS points_ledger (
+          id TEXT PRIMARY KEY,
+          actor_type TEXT NOT NULL,
+          actor_id TEXT NOT NULL,
+          delta INTEGER NOT NULL,
+          event_type TEXT NOT NULL,
+          ref_type TEXT,
+          ref_id TEXT,
+          meta_json TEXT,
+          created_at INTEGER NOT NULL
+        );
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ledger_actor ON points_ledger(actor_type, actor_id);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_ledger_ref ON points_ledger(ref_type, ref_id);")
+
+
+def _v4_project_takeovers(conn):
+    """Migration v4: admin project takeover records (publisher transfer + stake refund + bonus)."""
+
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS project_takeovers (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL UNIQUE,
+          from_publisher_type TEXT,
+          from_publisher_id TEXT,
+          to_publisher_type TEXT,
+          to_publisher_id TEXT,
+          stake_refund INTEGER NOT NULL DEFAULT 0,
+          bonus_reward INTEGER NOT NULL DEFAULT 0,
+          reason TEXT,
+          admin_id TEXT,
+          created_at INTEGER NOT NULL
+        );
+        """
+    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_takeovers_project ON project_takeovers(project_id);")
+
+
 MIGRATIONS = [
     Migration(version=1, name="init", up=_init_schema),
     Migration(version=2, name="agent_heartbeat", up=_v2_agent_heartbeat),
+    Migration(version=3, name="projects_and_ledger", up=_v3_projects_and_ledger),
+    Migration(version=4, name="project_takeovers", up=_v4_project_takeovers),
 ]
 
 

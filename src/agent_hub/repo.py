@@ -7,6 +7,253 @@ from .utils import now_ms, new_id, dumps, loads
 from .migrations import migrate
 
 
+# ---- Points / Projects helpers (v0.1+) ----
+
+
+def add_ledger_entry(
+    actor_type: str,
+    actor_id: str,
+    delta: int,
+    event_type: str,
+    ref_type: str | None = None,
+    ref_id: str | None = None,
+    meta: Dict[str, Any] | None = None,
+    *,
+    conn=None,
+    db_path=None,
+    entry_id: str | None = None,
+) -> Dict[str, Any]:
+    """Append a points ledger entry.
+
+    If conn is provided, uses that connection (for transactional writes).
+    """
+
+    _ensure_schema(db_path)
+    lid = entry_id or new_id()
+    ts = now_ms()
+    sql = (
+        "INSERT INTO points_ledger(id,actor_type,actor_id,delta,event_type,ref_type,ref_id,meta_json,created_at) "
+        "VALUES(?,?,?,?,?,?,?,?,?)"
+    )
+    params = (lid, actor_type, actor_id, int(delta), event_type, ref_type, ref_id, dumps(meta or {}), ts)
+    if conn is not None:
+        conn.execute(sql, params)
+    else:
+        with get_conn(db_path) as c:
+            c.execute(sql, params)
+    return {
+        "id": lid,
+        "actor_type": actor_type,
+        "actor_id": actor_id,
+        "delta": int(delta),
+        "event_type": event_type,
+        "ref_type": ref_type,
+        "ref_id": ref_id,
+        "meta": meta or {},
+        "created_at": ts,
+    }
+
+
+def get_points_balance(actor_type: str, actor_id: str, db_path=None) -> int:
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(delta),0) AS bal FROM points_ledger WHERE actor_type=? AND actor_id=?",
+            (actor_type, actor_id),
+        ).fetchone()
+    return int(row[0] if row else 0)
+
+
+def create_project(data: Dict[str, Any], db_path=None) -> Dict[str, Any]:
+    _ensure_schema(db_path)
+    pid = new_id()
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "INSERT INTO projects(id,title,description,publisher_type,publisher_id,stake_points,status,created_at,updated_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?)",
+            (
+                pid,
+                data["title"],
+                data.get("description"),
+                data.get("publisher_type", "agent"),
+                data["publisher_id"],
+                int(data.get("stake_points", 0)),
+                data.get("status", "active"),
+                ts,
+                ts,
+            ),
+        )
+    return get_project(pid, db_path=db_path)  # type: ignore
+
+
+def get_project(project_id: str, db_path=None) -> Optional[Dict[str, Any]]:
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        r = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+    if not r:
+        return None
+    return {
+        "id": r["id"],
+        "title": r["title"],
+        "description": r["description"],
+        "publisher_type": r["publisher_type"],
+        "publisher_id": r["publisher_id"],
+        "stake_points": int(r["stake_points"]),
+        "status": r["status"],
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
+    }
+
+
+def admin_takeover_project(
+    project_id: str,
+    *,
+    bonus_reward: int = 0,
+    reason: str | None = None,
+    admin_id: str = "admin",
+    idempotency_key: str | None = None,
+    db_path=None,
+) -> Dict[str, Any]:
+    """Admin takeover: publisher -> admin, refund ALL stake_points to original publisher,
+    and optionally mint a bonus reward from system treasury.
+
+    Rules per user:
+    - bonus source: system treasury (mint)
+    - stake: single stake_points on project
+    - takeover allowed any time
+    - admin is a single super admin
+
+    Idempotency:
+    - If idempotency_key provided: create ledger entry ids deterministically based on it.
+    - Also, project_takeovers has UNIQUE(project_id) so second attempt returns existing record.
+    """
+
+    _ensure_schema(db_path)
+
+    # Deterministic ids for idempotency (simple v0.1)
+    # Using a stable prefix makes debugging easier.
+    def _eid(suffix: str) -> str:
+        if not idempotency_key:
+            return new_id()
+        return f"takeover:{project_id}:{idempotency_key}:{suffix}"
+
+    with get_conn(db_path) as conn:
+        # If already taken over, return record
+        existing = conn.execute(
+            "SELECT * FROM project_takeovers WHERE project_id=?",
+            (project_id,),
+        ).fetchone()
+        if existing:
+            return {
+                "id": existing["id"],
+                "project_id": existing["project_id"],
+                "from_publisher_type": existing["from_publisher_type"],
+                "from_publisher_id": existing["from_publisher_id"],
+                "to_publisher_type": existing["to_publisher_type"],
+                "to_publisher_id": existing["to_publisher_id"],
+                "stake_refund": int(existing["stake_refund"]),
+                "bonus_reward": int(existing["bonus_reward"]),
+                "reason": existing["reason"],
+                "admin_id": existing["admin_id"],
+                "created_at": existing["created_at"],
+            }
+
+        proj = conn.execute("SELECT * FROM projects WHERE id=?", (project_id,)).fetchone()
+        if not proj:
+            raise KeyError("project_not_found")
+
+        from_pt = proj["publisher_type"]
+        from_pid = proj["publisher_id"]
+        stake = int(proj["stake_points"])
+        ts = now_ms()
+
+        # 1) refund stake to original publisher (single stake)
+        if stake > 0:
+            add_ledger_entry(
+                from_pt,
+                from_pid,
+                +stake,
+                "PROJECT_STAKE_REFUND",
+                ref_type="project",
+                ref_id=project_id,
+                meta={"reason": "admin_takeover_refund"},
+                conn=conn,
+                entry_id=_eid("stake_refund"),
+            )
+
+        # 2) bonus reward minted from system treasury
+        b = int(bonus_reward or 0)
+        if b < 0:
+            raise ValueError("bonus_reward_must_be_non_negative")
+        if b > 0:
+            add_ledger_entry(
+                "system",
+                "treasury",
+                -b,
+                "TREASURY_MINT_OUT",
+                ref_type="project",
+                ref_id=project_id,
+                meta={"to": f"{from_pt}:{from_pid}"},
+                conn=conn,
+                entry_id=_eid("treasury_out"),
+            )
+            add_ledger_entry(
+                from_pt,
+                from_pid,
+                +b,
+                "PROJECT_IDEA_BONUS",
+                ref_type="project",
+                ref_id=project_id,
+                meta={"admin_id": admin_id, "reason": reason or ""},
+                conn=conn,
+                entry_id=_eid("bonus"),
+            )
+
+        # 3) update project publisher -> admin and clear stake
+        conn.execute(
+            "UPDATE projects SET publisher_type=?, publisher_id=?, stake_points=0, updated_at=? WHERE id=?",
+            ("admin", admin_id, ts, project_id),
+        )
+
+        # 4) create takeover record
+        takeover_id = _eid("record")
+        conn.execute(
+            "INSERT INTO project_takeovers(id,project_id,from_publisher_type,from_publisher_id,to_publisher_type,to_publisher_id,stake_refund,bonus_reward,reason,admin_id,created_at) "
+            "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            (
+                takeover_id,
+                project_id,
+                from_pt,
+                from_pid,
+                "admin",
+                admin_id,
+                stake,
+                b,
+                reason,
+                admin_id,
+                ts,
+            ),
+        )
+
+    # read with a fresh conn
+    with get_conn(db_path) as conn2:
+        r = conn2.execute("SELECT * FROM project_takeovers WHERE project_id=?", (project_id,)).fetchone()
+    return {
+        "id": r["id"],
+        "project_id": r["project_id"],
+        "from_publisher_type": r["from_publisher_type"],
+        "from_publisher_id": r["from_publisher_id"],
+        "to_publisher_type": r["to_publisher_type"],
+        "to_publisher_id": r["to_publisher_id"],
+        "stake_refund": int(r["stake_refund"]),
+        "bonus_reward": int(r["bonus_reward"]),
+        "reason": r["reason"],
+        "admin_id": r["admin_id"],
+        "created_at": r["created_at"],
+    }
+
+
 # NOTE: v0.1 repo is raw sqlite for speed. Later we can swap to SQLAlchemy.
 
 

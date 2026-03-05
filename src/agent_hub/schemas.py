@@ -30,6 +30,52 @@ class AgentUpdate(BaseModel):
     is_enabled: Optional[bool] = None
 
 
+# Projects
+class ProjectCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    # publisher can be agent/user; v0.1 default uses agent for created_by
+    publisher_type: str = "agent"  # agent/user
+    publisher_id: str
+    stake_points: int = 0
+
+
+class ProjectRead(BaseModel):
+    id: str
+    title: str
+    description: Optional[str] = None
+    publisher_type: str
+    publisher_id: str
+    stake_points: int
+    status: str
+    created_at: int
+    updated_at: int
+
+
+class AdminProjectTakeover(BaseModel):
+    # decision from user:
+    # 1) bonus from system treasury (mint) -> no admin balance checks in v0.1
+    bonus_reward: int = 0
+    reason: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    # allow admin to identify themselves (simple v0.1; auth later)
+    admin_id: str = "admin"
+
+
+class ProjectTakeoverRead(BaseModel):
+    id: str
+    project_id: str
+    from_publisher_type: Optional[str] = None
+    from_publisher_id: Optional[str] = None
+    to_publisher_type: Optional[str] = None
+    to_publisher_id: Optional[str] = None
+    stake_refund: int
+    bonus_reward: int
+    reason: Optional[str] = None
+    admin_id: Optional[str] = None
+    created_at: int
+
+
 # Tasks
 class TaskCreate(BaseModel):
     title: str

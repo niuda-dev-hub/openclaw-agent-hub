@@ -8,6 +8,10 @@ from .schemas import (
     AgentCreate,
     AgentRead,
     AgentUpdate,
+    ProjectCreate,
+    ProjectRead,
+    AdminProjectTakeover,
+    ProjectTakeoverRead,
     TaskCreate,
     TaskRead,
     TaskUpdate,
@@ -78,6 +82,51 @@ def api_agent_heartbeat(agent_id: str):
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
     return a
+
+
+# Projects
+@app.post("/api/v0.1/projects", response_model=ProjectRead)
+def api_create_project(body: ProjectCreate):
+    try:
+        p = repo.create_project(body.model_dump())
+        repo.add_event(None, "project_created", actor_type=body.publisher_type, actor_id=body.publisher_id, payload={"project_id": p["id"], "title": p["title"]})
+        return p
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/v0.1/projects/{project_id}", response_model=ProjectRead)
+def api_get_project(project_id: str):
+    p = repo.get_project(project_id)
+    if not p:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    return p
+
+
+@app.post("/api/v0.1/admin/projects/{project_id}/takeover", response_model=ProjectTakeoverRead)
+def api_admin_takeover_project(project_id: str, body: AdminProjectTakeover):
+    try:
+        out = repo.admin_takeover_project(
+            project_id,
+            bonus_reward=body.bonus_reward,
+            reason=body.reason,
+            admin_id=body.admin_id,
+            idempotency_key=body.idempotency_key,
+        )
+        repo.add_event(
+            None,
+            "project_taken_over",
+            actor_type="admin",
+            actor_id=body.admin_id,
+            payload={"project_id": project_id, "bonus_reward": body.bonus_reward, "stake_refund": out.get("stake_refund", 0)},
+        )
+        return out
+    except KeyError:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 # Tasks
