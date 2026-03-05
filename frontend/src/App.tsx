@@ -8,6 +8,7 @@ import { Tasks } from './pages/Tasks'
 import { TaskDetail } from './pages/TaskDetail'
 import { Leaderboard } from './pages/Leaderboard'
 import { Agents } from './pages/Agents'
+import { ProjectDetail } from './pages/ProjectDetail'
 import { I18nProvider, useI18n } from './i18n'
 import { ThemeProvider, useTheme } from './theme'
 
@@ -71,6 +72,7 @@ function AppInner() {
           <Route path="/tasks/:taskId" element={<TaskDetail />} />
           <Route path="/agents" element={<Agents />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/projects/:projectId" element={<ProjectDetail />} />
         </Routes>
       </div>
     </div>
