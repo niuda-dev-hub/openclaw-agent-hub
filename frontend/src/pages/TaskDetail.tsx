@@ -43,6 +43,7 @@ interface EventRead {
   event_type: string
   actor_type: string
   actor_id?: string | null
+  payload?: unknown
   created_at: number
 }
 
@@ -233,13 +234,22 @@ export function TaskDetail() {
               ? <div style={{ color: 'var(--muted)' }}>{t.taskDetail.noEvents}</div>
               : (
                 <ul className="timeline">
-                  {events.map((ev) => (
-                    <li key={ev.id} className="timeline-item">
-                      <span className="timeline-time">{fmtTime(ev.created_at)}</span>
-                      <span className="timeline-type">{ev.event_type}</span>
-                      <span className="timeline-actor">{ev.actor_type}{ev.actor_id ? `:${shortId(ev.actor_id)}` : ''}</span>
-                    </li>
-                  ))}
+                  {events.map((ev) => {
+                    const payloadObj = safeParse(ev.payload)
+                    const payloadText = payloadObj ? JSON.stringify(payloadObj, null, 2) : (ev.payload == null ? '' : String(ev.payload))
+                    return (
+                      <li key={ev.id} className="timeline-item" style={{ alignItems: 'start' }}>
+                        <span className="timeline-time">{fmtTime(ev.created_at)}</span>
+                        <span className="timeline-type">{ev.event_type}</span>
+                        <span className="timeline-actor">{ev.actor_type}{ev.actor_id ? `:${shortId(ev.actor_id)}` : ''}</span>
+                        {payloadText && (
+                          <pre style={{ gridColumn: '1 / -1', margin: '6px 0 0 0', maxHeight: 160, overflowY: 'auto' }}>
+                            {payloadText}
+                          </pre>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               )
           )}
