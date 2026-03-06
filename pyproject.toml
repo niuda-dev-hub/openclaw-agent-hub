@@ -24,3 +24,9 @@ dev = [
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[project.scripts]
+# 后端 FastAPI 服务启动
+agent-hub-server = "agent_hub.main:app"
+# Worker 轮询服务入口（支持 --interval / --batch-size / --once 等参数）
+agent-hub-worker = "agent_hub.worker:main"

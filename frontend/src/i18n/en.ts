@@ -7,6 +7,7 @@ export const en: Translations = {
         tasks: 'Tasks',
         agents: 'Agents',
         leaderboard: 'Leaderboard',
+        admin: 'Admin',
     },
     common: {
         loading: 'Loading...',
@@ -116,6 +117,17 @@ export const en: Translations = {
         colReviews: 'Reviews',
         colTask: 'Task',
         noData: 'No score data yet',
+    },
+    admin: {
+        title: 'Admin Panel',
+        tasks: 'Tasks',
+        runs: 'Runs',
+        submissions: 'Submissions',
+        colTitle: 'Title',
+        colStatus: 'Status',
+        colCreated: 'Time',
+        colActions: 'Actions',
+        finalize: 'Finalize',
     },
     theme: {
         label: 'Theme',

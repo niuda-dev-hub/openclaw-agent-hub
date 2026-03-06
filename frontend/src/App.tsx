@@ -9,6 +9,7 @@ import { TaskDetail } from './pages/TaskDetail'
 import { Leaderboard } from './pages/Leaderboard'
 import { Agents } from './pages/Agents'
 import { ProjectDetail } from './pages/ProjectDetail'
+import { Admin } from './pages/Admin'
 import { I18nProvider, useI18n } from './i18n'
 import { ThemeProvider, useTheme } from './theme'
 
@@ -33,6 +34,9 @@ function TopBar() {
           </NavLink>
           <NavLink to="/leaderboard" className={({ isActive }) => isActive ? 'active' : undefined}>
             {t.nav.leaderboard}
+          </NavLink>
+          <NavLink to="/admin" className={({ isActive }) => isActive ? 'active' : undefined}>
+            {t.nav.admin}
           </NavLink>
         </nav>
 
@@ -73,6 +77,7 @@ function AppInner() {
           <Route path="/agents" element={<Agents />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
           <Route path="/projects/:projectId" element={<ProjectDetail />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </div>
     </div>
