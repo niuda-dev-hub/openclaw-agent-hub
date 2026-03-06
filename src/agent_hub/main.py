@@ -29,6 +29,13 @@ from .schemas import (
     EventRead,
     WalletState,
     FundRequest,
+    AutomatonState,
+    EpisodicEventCreate,
+    EpisodicEventRead,
+    ProceduralSOPCreate,
+    ProceduralSOPRead,
+    SoulHistoryCreate,
+    SoulHistoryRead,
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
@@ -305,76 +312,85 @@ def api_list_events(task_id: str, limit: int = 50):
     return repo.list_events(task_id, limit=limit)
 
 
-# Wallet
-@app.get("/api/v0.1/agents/{agent_id}/wallet", response_model=WalletState)
-def api_get_agent_wallet(agent_id: str):
-    """获取 Agent 的 Hub 钱包状态（Hub 层面累计奖励 + automaton 层面余额）。"""
-    import os, json
+# ─── Wallet & Automaton SaaS APIs ──────────────────────────────────────────
+
+@app.get("/api/v0.1/agents/{agent_id}/automaton_state", response_model=AutomatonState)
+def api_get_automaton_state(agent_id: str):
+    """获取 Agent 的 Automaton 状态（包含钱包与心跳配置）。"""
     a = repo.get_agent(agent_id)
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
+    return repo.get_automaton_state(agent_id)
 
-    hub_wallet = repo.get_hub_wallet(agent_id)
 
-    # 从 automaton-lifecycle data.json 读取实时余额和 Survival Tier
-    data_path = os.path.expanduser("~/.openclaw/automaton-lifecycle/data.json")
-    balance_usd = 0.0
-    lifetime_spent_usd = 0.0
-    tier = "unknown"
-    try:
-        with open(data_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        balance_usd = data.get("wallet", {}).get("balance_usd", 0.0)
-        lifetime_spent_usd = data.get("wallet", {}).get("lifetime_spent", 0.0)
-        # Survival Tier 简化计算（基于余额）
-        if balance_usd <= 0:
-            tier = "dead"
-        elif balance_usd < 2.0:
-            tier = "critical"
-        elif balance_usd < 5.0:
-            tier = "low_compute"
-        elif balance_usd < 10.0:
-            tier = "normal"
-        else:
-            tier = "high"
-    except Exception:
-        pass
+@app.patch("/api/v0.1/agents/{agent_id}/automaton_state", response_model=AutomatonState)
+def api_update_automaton_state(agent_id: str, body: dict):
+    """局部更新 Automaton 状态。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    repo.update_automaton_state(agent_id, body)
+    return repo.get_automaton_state(agent_id)
 
-    return WalletState(
-        balance_usd=balance_usd,
-        lifetime_spent_usd=lifetime_spent_usd,
-        lifetime_earned_usd=hub_wallet["lifetime_earned_usd"],
-        survival_tier=tier,
-    )
+
+@app.get("/api/v0.1/agents/{agent_id}/wallet", response_model=WalletState)
+def api_get_agent_wallet(agent_id: str):
+    """兼容旧版的单纯获取钱包信息（实际返回 AutomatonState 的兼容字段）。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    st = repo.get_automaton_state(agent_id)
+    return WalletState(**st)
 
 
 @app.post("/api/v0.1/agents/{agent_id}/wallet/fund", response_model=WalletState)
 def api_fund_agent_wallet(agent_id: str, body: FundRequest):
-    """为 Agent 虚拟钱包注资（写入 automaton-lifecycle data.json）。"""
-    import os, json
+    """为 Agent 虚拟钱包注资。"""
     a = repo.get_agent(agent_id)
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
     if body.amount_usd <= 0:
         raise HTTPException(status_code=400, detail="amount_usd must be > 0")
 
-    data_path = os.path.expanduser("~/.openclaw/automaton-lifecycle/data.json")
-    try:
-        os.makedirs(os.path.dirname(data_path), exist_ok=True)
-        if os.path.exists(data_path):
-            with open(data_path, "r", encoding="utf-8") as f:
-                store = json.load(f)
-        else:
-            store = {"wallet": {"balance_usd": 0.0, "lifetime_spent": 0.0}}
+    st = repo.get_automaton_state(agent_id)
+    new_balance = st["balance_usd"] + body.amount_usd
+    repo.update_automaton_state(agent_id, {"balance_usd": new_balance})
+    
+    return WalletState(**repo.get_automaton_state(agent_id))
 
-        store.setdefault("wallet", {})
-        store["wallet"]["balance_usd"] = store["wallet"].get("balance_usd", 0.0) + body.amount_usd
-        store["wallet"]["updated_at"] = __import__("datetime").datetime.utcnow().isoformat()
 
-        with open(data_path, "w", encoding="utf-8") as f:
-            json.dump(store, f, indent=2)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fund wallet: {e}")
+# ─── Memory: Episodic Events ───────────────────────────────────────────────
 
-    # 逐次返回更新后的状态
-    return api_get_agent_wallet(agent_id)
+@app.post("/api/v0.1/agents/{agent_id}/memory/events", response_model=EpisodicEventRead)
+def api_record_event(agent_id: str, body: EpisodicEventCreate):
+    return repo.record_episodic_event(agent_id, body.event_type, body.content)
+
+
+@app.get("/api/v0.1/agents/{agent_id}/memory/events", response_model=list[EpisodicEventRead])
+def api_get_events(agent_id: str, event_type: str = None, limit: int = 10):
+    return repo.get_episodic_events(agent_id, event_type, limit)
+
+
+# ─── Memory: Procedural SOPs ───────────────────────────────────────────────
+
+@app.post("/api/v0.1/agents/{agent_id}/memory/sops", response_model=ProceduralSOPRead)
+def api_save_sop(agent_id: str, body: ProceduralSOPCreate):
+    return repo.save_procedural_sop(agent_id, body.trigger_condition, body.steps_json)
+
+
+@app.get("/api/v0.1/agents/{agent_id}/memory/sops", response_model=list[ProceduralSOPRead])
+def api_get_sops(agent_id: str):
+    return repo.get_procedural_sops(agent_id)
+
+
+# ─── Soul Reflection ───────────────────────────────────────────────────────
+
+@app.post("/api/v0.1/agents/{agent_id}/soul/history", response_model=SoulHistoryRead)
+def api_record_soul(agent_id: str, body: SoulHistoryCreate):
+    return repo.record_soul_history(
+        agent_id,
+        body.field_name,
+        body.old_value,
+        body.new_value,
+        body.reason,
+    )

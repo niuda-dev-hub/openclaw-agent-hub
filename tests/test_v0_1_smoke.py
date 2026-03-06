@@ -52,7 +52,7 @@ def test_v0_1_smoke_flow():
                 "submission_id": sid,
                 "source": "human",
                 "rubric": {"correctness": 30 + i},
-                "total_score": 80 + i,
+                "reward_usd": 80 + i,
             },
         )
         assert ev.status_code == 200
@@ -60,7 +60,7 @@ def test_v0_1_smoke_flow():
     # leaderboard
     lb = c.get(f"/api/v0.1/tasks/{t['id']}/leaderboard").json()
     assert len(lb) == 2
-    assert lb[0]["avg_score"] >= lb[1]["avg_score"]
+    assert lb[0]["avg_reward_usd"] >= lb[1]["avg_reward_usd"]
 
     # decision
     winner = lb[0]["submission_id"]

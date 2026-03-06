@@ -42,7 +42,7 @@ def test_claim_participation_minimal_roundtrip(tmp_path):
         "reviewer_id": "tester",
         "source": "human",
         "rubric": {"q": 5},
-        "total_score": 5.0,
+        "reward_usd": 5.0,
         "comments": "looks good",
     }, db_path=str(db_path))
 

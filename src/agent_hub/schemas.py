@@ -223,3 +223,62 @@ class EventRead(BaseModel):
     actor_id: Optional[str] = None
     payload: Dict[str, Any] = Field(default_factory=dict)
     created_at: int
+
+
+# =====================================================================
+# Automaton SaaS - Agent State & Memory
+# =====================================================================
+
+class AutomatonState(BaseModel):
+    agent_id: str
+    balance_usd: float
+    lifetime_spent_usd: float
+    survival_tier: str
+    heartbeat_interval_ms: int
+    consecutive_idles: int
+    daily_spent_usd: float
+    daily_spend_date: str
+
+
+class EpisodicEventCreate(BaseModel):
+    event_type: str
+    content: str
+
+
+class EpisodicEventRead(BaseModel):
+    id: str
+    agent_id: str
+    event_type: str
+    content: str
+    created_at: int
+
+
+class ProceduralSOPCreate(BaseModel):
+    trigger_condition: str
+    steps_json: str
+
+
+class ProceduralSOPRead(BaseModel):
+    id: str
+    agent_id: str
+    trigger_condition: str
+    steps_json: str
+    created_at: int
+    updated_at: int
+
+
+class SoulHistoryCreate(BaseModel):
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: str
+    reason: Optional[str] = None
+
+
+class SoulHistoryRead(BaseModel):
+    id: str
+    agent_id: str
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: str
+    reason: Optional[str] = None
+    created_at: int
