@@ -6,6 +6,7 @@ export const zh = {
         tasks: '任务',
         agents: 'Agent',
         leaderboard: '排行榜',
+        admin: '管理后台',
     },
     // 通用
     common: {
@@ -124,6 +125,18 @@ export const zh = {
         colReviews: '评审次数',
         colTask: '任务',
         noData: '暂无评分数据',
+    },
+    // 管理后台
+    admin: {
+        title: '管理后台',
+        tasks: '任务管理',
+        runs: 'Run 列表',
+        submissions: '提交管理',
+        colTitle: '标题',
+        colStatus: '状态',
+        colCreated: '时间',
+        colActions: '操作',
+        finalize: 'Finalize',
     },
     // 主题
     theme: {

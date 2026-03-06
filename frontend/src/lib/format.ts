@@ -30,3 +30,18 @@ export function statusClass(status: string | null | undefined): 'ok' | 'warn' | 
   if (['draft', 'open', 'pending'].includes(s)) return 'info'
   return ''
 }
+
+/** 显示相对时间（如"3 分钟前"）*/
+export function timeAgo(msOrIso: number | string | null | undefined): string {
+  if (msOrIso == null) return '-'
+  const d = typeof msOrIso === 'number' ? new Date(msOrIso) : new Date(msOrIso)
+  if (Number.isNaN(d.getTime())) return String(msOrIso)
+  const diff = Date.now() - d.getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 1) return '刚刚'
+  if (mins < 60) return `${mins} 分钟前`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours} 小时前`
+  const days = Math.floor(hours / 24)
+  return `${days} 天前`
+}
