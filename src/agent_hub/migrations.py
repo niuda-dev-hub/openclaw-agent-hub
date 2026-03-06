@@ -161,68 +161,27 @@ def _v2_agent_heartbeat(conn):
         pass  # 列已存在，忽略
 
 
-def _v3_projects_and_ledger(conn):
-    """Migration v3: add projects + points ledger tables (foundation for incentives)."""
-
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS projects (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          description TEXT,
-          publisher_type TEXT NOT NULL,
-          publisher_id TEXT NOT NULL,
-          stake_points INTEGER NOT NULL DEFAULT 0,
-          status TEXT NOT NULL DEFAULT 'active',
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        );
-        """
-    )
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_publisher ON projects(publisher_type, publisher_id);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);")
-
-    # Append-only ledger: balance = SUM(delta)
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS points_ledger (
-          id TEXT PRIMARY KEY,
-          actor_type TEXT NOT NULL,
-          actor_id TEXT NOT NULL,
-          delta INTEGER NOT NULL,
-          event_type TEXT NOT NULL,
-          ref_type TEXT,
-          ref_id TEXT,
-          meta_json TEXT,
-          created_at INTEGER NOT NULL
-        );
-        """
-    )
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_ledger_actor ON points_ledger(actor_type, actor_id);")
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_ledger_ref ON points_ledger(ref_type, ref_id);")
+def _v5_rename_score_to_reward_usd(conn):
+    """Migration v5: evaluations 表将 total_score 列改名为 reward_usd，
+    语义由 '0-100 评分' 改为 'USD 奖励'。"""
+    # SQLite 不支持直接 RENAME COLUMN，用 ADD + UPDATE + 旧列保留实现向向展
+    try:
+        conn.execute("ALTER TABLE evaluations ADD COLUMN reward_usd REAL NOT NULL DEFAULT 0")
+        conn.execute("UPDATE evaluations SET reward_usd = total_score")
+    except Exception:
+        pass  # 列已存在
 
 
-def _v4_project_takeovers(conn):
-    """Migration v4: admin project takeover records (publisher transfer + stake refund + bonus)."""
-
-    conn.execute(
-        """
-        CREATE TABLE IF NOT EXISTS project_takeovers (
-          id TEXT PRIMARY KEY,
-          project_id TEXT NOT NULL UNIQUE,
-          from_publisher_type TEXT,
-          from_publisher_id TEXT,
-          to_publisher_type TEXT,
-          to_publisher_id TEXT,
-          stake_refund INTEGER NOT NULL DEFAULT 0,
-          bonus_reward INTEGER NOT NULL DEFAULT 0,
-          reason TEXT,
-          admin_id TEXT,
-          created_at INTEGER NOT NULL
-        );
-        """
-    )
-    conn.execute("CREATE INDEX IF NOT EXISTS idx_takeovers_project ON project_takeovers(project_id);")
+def _v6_agent_hub_wallets(conn):
+    """Migration v6: 新增 agent_hub_wallets 表，用于记录每个 Agent 在 Hub 层面累计奖励与历史花费。"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_hub_wallets (
+            agent_id TEXT PRIMARY KEY,
+            lifetime_earned_usd REAL NOT NULL DEFAULT 0.0,  -- 历史累计奖励
+            updated_at INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
 
 
 MIGRATIONS = [
@@ -230,6 +189,8 @@ MIGRATIONS = [
     Migration(version=2, name="agent_heartbeat", up=_v2_agent_heartbeat),
     Migration(version=3, name="projects_and_ledger", up=_v3_projects_and_ledger),
     Migration(version=4, name="project_takeovers", up=_v4_project_takeovers),
+    Migration(version=5, name="rename_score_to_reward_usd", up=_v5_rename_score_to_reward_usd),
+    Migration(version=6, name="agent_hub_wallets", up=_v6_agent_hub_wallets),
 ]
 
 

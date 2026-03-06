@@ -33,7 +33,7 @@ interface EvaluationRead {
   id: string
   submission_id: string
   source: string
-  total_score: number
+  reward_usd: number   // 奖励金额（USD）原字段 total_score
   comments?: string | null
   created_at: number
 }
@@ -208,7 +208,7 @@ export function TaskDetail() {
                     <tr>
                       <th>submission</th>
                       <th>source</th>
-                      <th>score</th>
+                      <th>💰 reward (USD)</th>
                       <th>comments</th>
                       <th>time</th>
                     </tr>
@@ -218,7 +218,7 @@ export function TaskDetail() {
                       <tr key={ev.id}>
                         <td style={{ fontFamily: 'var(--mono)', fontSize: 11 }}>{shortId(ev.submission_id)}</td>
                         <td><span className="badge">{ev.source}</span></td>
-                        <td style={{ fontWeight: 700, color: 'var(--brand)' }}>{ev.total_score}</td>
+                        <td style={{ fontWeight: 700, color: 'var(--ok)' }}>${ev.reward_usd.toFixed(4)}</td>
                         <td style={{ color: 'var(--muted)', fontSize: 12 }}>{ev.comments ?? '-'}</td>
                         <td style={{ color: 'var(--muted)', fontSize: 11 }}>{fmtTime(ev.created_at)}</td>
                       </tr>

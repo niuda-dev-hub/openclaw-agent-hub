@@ -164,7 +164,7 @@ class EvaluationCreate(BaseModel):
     reviewer_id: Optional[str] = None
     source: str = "human"  # human/auto
     rubric: Dict[str, Any] = Field(default_factory=dict)
-    total_score: float
+    reward_usd: float  # 任务奖励（美元），原字段 total_score
     comments: Optional[str] = None
 
 
@@ -175,15 +175,27 @@ class EvaluationRead(BaseModel):
     reviewer_id: Optional[str] = None
     source: str
     rubric: Dict[str, Any] = Field(default_factory=dict)
-    total_score: float
+    reward_usd: float
     comments: Optional[str] = None
     created_at: int
 
 
 class LeaderboardEntry(BaseModel):
     submission_id: str
-    avg_score: float
+    avg_reward_usd: float  # 平均奖励（USD）
     review_count: int
+
+
+# Wallet
+class WalletState(BaseModel):
+    balance_usd: float
+    lifetime_spent_usd: float
+    lifetime_earned_usd: float
+    survival_tier: str  # high/normal/low_compute/critical/dead
+
+class FundRequest(BaseModel):
+    amount_usd: float
+    memo: Optional[str] = None
 
 
 # Decision

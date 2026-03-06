@@ -635,9 +635,10 @@ def create_evaluation(task_id: str, data: Dict[str, Any], db_path=None) -> Dict[
     _ensure_schema(db_path)
     ev_id = new_id()
     ts = now_ms()
+    reward = float(data.get("reward_usd", data.get("total_score", 0)))  # 兼容旧字段
     with get_conn(db_path) as conn:
         conn.execute(
-            "INSERT INTO evaluations(id,task_id,submission_id,reviewer_id,source,rubric_json,total_score,comments,created_at) VALUES(?,?,?,?,?,?,?,?,?)",
+            "INSERT INTO evaluations(id,task_id,submission_id,reviewer_id,source,rubric_json,total_score,reward_usd,comments,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)",
             (
                 ev_id,
                 task_id,
@@ -645,11 +646,21 @@ def create_evaluation(task_id: str, data: Dict[str, Any], db_path=None) -> Dict[
                 data.get("reviewer_id"),
                 data.get("source", "human"),
                 dumps(data.get("rubric", {})),
-                float(data["total_score"]),
+                reward,  # total_score 保持兼容
+                reward,  # reward_usd 新主字段
                 data.get("comments"),
                 ts,
             ),
         )
+    # 将奖励同步累计到 agent_hub_wallets（通过 agent_id 从 run 查找）
+    try:
+        sub = get_submission(data["submission_id"], db_path=db_path)
+        if sub:
+            run = get_run(sub["run_id"], db_path=db_path)
+            if run:
+                credit_agent_wallet(run["agent_id"], reward, db_path=db_path)
+    except Exception:
+        pass
     return get_evaluation(ev_id, db_path=db_path)  # type: ignore
 
 
@@ -659,6 +670,9 @@ def get_evaluation(ev_id: str, db_path=None) -> Optional[Dict[str, Any]]:
         r = conn.execute("SELECT * FROM evaluations WHERE id=?", (ev_id,)).fetchone()
     if not r:
         return None
+    # reward_usd 优先，没有该列时回落到 total_score
+    keys = r.keys()
+    reward = float(r["reward_usd"]) if "reward_usd" in keys else float(r["total_score"])
     return {
         "id": r["id"],
         "task_id": r["task_id"],
@@ -666,7 +680,7 @@ def get_evaluation(ev_id: str, db_path=None) -> Optional[Dict[str, Any]]:
         "reviewer_id": r["reviewer_id"],
         "source": r["source"],
         "rubric": loads(r["rubric_json"], {}),
-        "total_score": float(r["total_score"]),
+        "reward_usd": reward,
         "comments": r["comments"],
         "created_at": r["created_at"],
     }
@@ -681,17 +695,19 @@ def list_evaluations(task_id: str, db_path=None) -> List[Dict[str, Any]]:
 
 def leaderboard(task_id: str, db_path=None) -> List[Dict[str, Any]]:
     _ensure_schema(db_path)
-    # MVP: avg + count per submission
+    # 优先使用 reward_usd 列（新版），回落到 total_score（旧版）
     with get_conn(db_path) as conn:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(evaluations)").fetchall()]
+        score_col = "reward_usd" if "reward_usd" in cols else "total_score"
         rows = conn.execute(
-            "SELECT submission_id, AVG(total_score) AS avg_score, COUNT(*) AS c "
-            "FROM evaluations WHERE task_id=? GROUP BY submission_id ORDER BY avg_score DESC",
+            f"SELECT submission_id, AVG({score_col}) AS avg_reward_usd, COUNT(*) AS c "
+            "FROM evaluations WHERE task_id=? GROUP BY submission_id ORDER BY avg_reward_usd DESC",
             (task_id,),
         ).fetchall()
     return [
         {
             "submission_id": r["submission_id"],
-            "avg_score": float(r["avg_score"]),
+            "avg_reward_usd": float(r["avg_reward_usd"]),
             "review_count": int(r["c"]),
         }
         for r in rows
@@ -778,3 +794,33 @@ def update_agent_heartbeat(agent_id: str, db_path=None) -> Optional[Dict[str, An
         if cur.rowcount == 0:
             return None
     return get_agent(agent_id, db_path=db_path)
+
+
+# ─── Agent Hub Wallet (Hub 层面奖励追踪) ──────────────────────────────────────
+
+def credit_agent_wallet(agent_id: str, amount_usd: float, db_path=None) -> None:
+    """为 Agent 记录一笔奖励收入（Hub 层面）。"""
+    _ensure_schema(db_path)
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            """
+            INSERT INTO agent_hub_wallets(agent_id, lifetime_earned_usd, updated_at)
+            VALUES(?, ?, ?)
+            ON CONFLICT(agent_id) DO UPDATE SET
+                lifetime_earned_usd = lifetime_earned_usd + ?,
+                updated_at = ?
+            """,
+            (agent_id, amount_usd, ts, amount_usd, ts),
+        )
+
+
+def get_hub_wallet(agent_id: str, db_path=None) -> Dict[str, Any]:
+    """获取 Agent 在 Hub 层面记录的累计奖励。"""
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        r = conn.execute(
+            "SELECT * FROM agent_hub_wallets WHERE agent_id=?", (agent_id,)
+        ).fetchone()
+    earned = float(r["lifetime_earned_usd"]) if r else 0.0
+    return {"agent_id": agent_id, "lifetime_earned_usd": earned}

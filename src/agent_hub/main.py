@@ -27,6 +27,8 @@ from .schemas import (
     DecisionCreate,
     DecisionRead,
     EventRead,
+    WalletState,
+    FundRequest,
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
@@ -253,7 +255,12 @@ def api_create_evaluation(task_id: str, body: EvaluationCreate):
     if not t:
         raise HTTPException(status_code=404, detail="task_not_found")
     ev = repo.create_evaluation(task_id, body.model_dump())
-    repo.add_event(task_id, "evaluated", actor_type="user" if body.source == "human" else "system", actor_id=body.reviewer_id, payload={"submission_id": body.submission_id, "total_score": body.total_score})
+    repo.add_event(
+        task_id, "evaluated",
+        actor_type="user" if body.source == "human" else "system",
+        actor_id=body.reviewer_id,
+        payload={"submission_id": body.submission_id, "reward_usd": body.reward_usd},
+    )
     return ev
 
 
@@ -291,8 +298,83 @@ def api_get_decision(task_id: str):
 
 @app.get("/api/v0.1/tasks/{task_id}/events", response_model=list[EventRead])
 def api_list_events(task_id: str, limit: int = 50):
-    """\u7b2c\u4e00\u4e2a\u5ba1\u8ba1\u4e8b\u4ef6\u6d41\u63a5\u53e3\uff08v0.1 \u89c4\u683c\u4e2d\u5b9a\u4e49\u4f46\u672a\u5b9e\u73b0\uff09\u3002"""
+    """审计事件流接口（v0.1）。"""
     t = repo.get_task(task_id)
     if not t:
         raise HTTPException(status_code=404, detail="task_not_found")
     return repo.list_events(task_id, limit=limit)
+
+
+# Wallet
+@app.get("/api/v0.1/agents/{agent_id}/wallet", response_model=WalletState)
+def api_get_agent_wallet(agent_id: str):
+    """获取 Agent 的 Hub 钱包状态（Hub 层面累计奖励 + automaton 层面余额）。"""
+    import os, json
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+
+    hub_wallet = repo.get_hub_wallet(agent_id)
+
+    # 从 automaton-lifecycle data.json 读取实时余额和 Survival Tier
+    data_path = os.path.expanduser("~/.openclaw/automaton-lifecycle/data.json")
+    balance_usd = 0.0
+    lifetime_spent_usd = 0.0
+    tier = "unknown"
+    try:
+        with open(data_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        balance_usd = data.get("wallet", {}).get("balance_usd", 0.0)
+        lifetime_spent_usd = data.get("wallet", {}).get("lifetime_spent", 0.0)
+        # Survival Tier 简化计算（基于余额）
+        if balance_usd <= 0:
+            tier = "dead"
+        elif balance_usd < 2.0:
+            tier = "critical"
+        elif balance_usd < 5.0:
+            tier = "low_compute"
+        elif balance_usd < 10.0:
+            tier = "normal"
+        else:
+            tier = "high"
+    except Exception:
+        pass
+
+    return WalletState(
+        balance_usd=balance_usd,
+        lifetime_spent_usd=lifetime_spent_usd,
+        lifetime_earned_usd=hub_wallet["lifetime_earned_usd"],
+        survival_tier=tier,
+    )
+
+
+@app.post("/api/v0.1/agents/{agent_id}/wallet/fund", response_model=WalletState)
+def api_fund_agent_wallet(agent_id: str, body: FundRequest):
+    """为 Agent 虚拟钱包注资（写入 automaton-lifecycle data.json）。"""
+    import os, json
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    if body.amount_usd <= 0:
+        raise HTTPException(status_code=400, detail="amount_usd must be > 0")
+
+    data_path = os.path.expanduser("~/.openclaw/automaton-lifecycle/data.json")
+    try:
+        os.makedirs(os.path.dirname(data_path), exist_ok=True)
+        if os.path.exists(data_path):
+            with open(data_path, "r", encoding="utf-8") as f:
+                store = json.load(f)
+        else:
+            store = {"wallet": {"balance_usd": 0.0, "lifetime_spent": 0.0}}
+
+        store.setdefault("wallet", {})
+        store["wallet"]["balance_usd"] = store["wallet"].get("balance_usd", 0.0) + body.amount_usd
+        store["wallet"]["updated_at"] = __import__("datetime").datetime.utcnow().isoformat()
+
+        with open(data_path, "w", encoding="utf-8") as f:
+            json.dump(store, f, indent=2)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to fund wallet: {e}")
+
+    # 逐次返回更新后的状态
+    return api_get_agent_wallet(agent_id)
