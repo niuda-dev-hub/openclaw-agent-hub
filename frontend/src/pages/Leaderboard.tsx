@@ -8,7 +8,7 @@ import { useI18n } from '../i18n'
 import { shortId } from '../lib/format'
 
 interface TaskRead { id: string; title: string; status: string }
-interface LeaderboardEntry { submission_id: string; avg_score: number; review_count: number }
+interface LeaderboardEntry { submission_id: string; avg_reward_usd: number; review_count: number }
 
 interface Row extends LeaderboardEntry {
   taskId: string
@@ -37,7 +37,7 @@ export function Leaderboard() {
         const all: Row[] = []
         results.forEach((r) => { if (r.status === 'fulfilled') all.push(...r.value) })
         // 按平均分降序
-        all.sort((a, b) => b.avg_score - a.avg_score)
+        all.sort((a, b) => b.avg_reward_usd - a.avg_reward_usd)
         setRows(all)
         setLoading(false)
       })
@@ -62,7 +62,7 @@ export function Leaderboard() {
                 <th style={{ paddingLeft: 16, width: 40 }}>#</th>
                 <th>submission</th>
                 <th>{t.leaderboard.colTask}</th>
-                <th>{t.leaderboard.colAvgScore}</th>
+                <th>💰 avg reward (USD)</th>
                 <th>{t.leaderboard.colReviews}</th>
               </tr>
             </thead>
@@ -77,8 +77,8 @@ export function Leaderboard() {
                   </td>
                   <td style={{ fontSize: 13 }}>{row.taskTitle}</td>
                   <td>
-                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--brand)' }}>
-                      {row.avg_score.toFixed(1)}
+                    <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--ok)' }}>
+                      ${row.avg_reward_usd.toFixed(4)}
                     </span>
                   </td>
                   <td style={{ color: 'var(--muted)' }}>{row.review_count}</td>

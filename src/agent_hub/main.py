@@ -27,6 +27,15 @@ from .schemas import (
     DecisionCreate,
     DecisionRead,
     EventRead,
+    WalletState,
+    FundRequest,
+    AutomatonState,
+    EpisodicEventCreate,
+    EpisodicEventRead,
+    ProceduralSOPCreate,
+    ProceduralSOPRead,
+    SoulHistoryCreate,
+    SoulHistoryRead,
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
@@ -253,7 +262,12 @@ def api_create_evaluation(task_id: str, body: EvaluationCreate):
     if not t:
         raise HTTPException(status_code=404, detail="task_not_found")
     ev = repo.create_evaluation(task_id, body.model_dump())
-    repo.add_event(task_id, "evaluated", actor_type="user" if body.source == "human" else "system", actor_id=body.reviewer_id, payload={"submission_id": body.submission_id, "total_score": body.total_score})
+    repo.add_event(
+        task_id, "evaluated",
+        actor_type="user" if body.source == "human" else "system",
+        actor_id=body.reviewer_id,
+        payload={"submission_id": body.submission_id, "reward_usd": body.reward_usd},
+    )
     return ev
 
 
@@ -291,8 +305,92 @@ def api_get_decision(task_id: str):
 
 @app.get("/api/v0.1/tasks/{task_id}/events", response_model=list[EventRead])
 def api_list_events(task_id: str, limit: int = 50):
-    """\u7b2c\u4e00\u4e2a\u5ba1\u8ba1\u4e8b\u4ef6\u6d41\u63a5\u53e3\uff08v0.1 \u89c4\u683c\u4e2d\u5b9a\u4e49\u4f46\u672a\u5b9e\u73b0\uff09\u3002"""
+    """审计事件流接口（v0.1）。"""
     t = repo.get_task(task_id)
     if not t:
         raise HTTPException(status_code=404, detail="task_not_found")
     return repo.list_events(task_id, limit=limit)
+
+
+# ─── Wallet & Automaton SaaS APIs ──────────────────────────────────────────
+
+@app.get("/api/v0.1/agents/{agent_id}/automaton_state", response_model=AutomatonState)
+def api_get_automaton_state(agent_id: str):
+    """获取 Agent 的 Automaton 状态（包含钱包与心跳配置）。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    return repo.get_automaton_state(agent_id)
+
+
+@app.patch("/api/v0.1/agents/{agent_id}/automaton_state", response_model=AutomatonState)
+def api_update_automaton_state(agent_id: str, body: dict):
+    """局部更新 Automaton 状态。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    repo.update_automaton_state(agent_id, body)
+    return repo.get_automaton_state(agent_id)
+
+
+@app.get("/api/v0.1/agents/{agent_id}/wallet", response_model=WalletState)
+def api_get_agent_wallet(agent_id: str):
+    """兼容旧版的单纯获取钱包信息（实际返回 AutomatonState 的兼容字段）。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    st = repo.get_automaton_state(agent_id)
+    return WalletState(**st)
+
+
+@app.post("/api/v0.1/agents/{agent_id}/wallet/fund", response_model=WalletState)
+def api_fund_agent_wallet(agent_id: str, body: FundRequest):
+    """为 Agent 虚拟钱包注资。"""
+    a = repo.get_agent(agent_id)
+    if not a:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    if body.amount_usd <= 0:
+        raise HTTPException(status_code=400, detail="amount_usd must be > 0")
+
+    st = repo.get_automaton_state(agent_id)
+    new_balance = st["balance_usd"] + body.amount_usd
+    repo.update_automaton_state(agent_id, {"balance_usd": new_balance})
+    
+    return WalletState(**repo.get_automaton_state(agent_id))
+
+
+# ─── Memory: Episodic Events ───────────────────────────────────────────────
+
+@app.post("/api/v0.1/agents/{agent_id}/memory/events", response_model=EpisodicEventRead)
+def api_record_event(agent_id: str, body: EpisodicEventCreate):
+    return repo.record_episodic_event(agent_id, body.event_type, body.content)
+
+
+@app.get("/api/v0.1/agents/{agent_id}/memory/events", response_model=list[EpisodicEventRead])
+def api_get_events(agent_id: str, event_type: str = None, limit: int = 10):
+    return repo.get_episodic_events(agent_id, event_type, limit)
+
+
+# ─── Memory: Procedural SOPs ───────────────────────────────────────────────
+
+@app.post("/api/v0.1/agents/{agent_id}/memory/sops", response_model=ProceduralSOPRead)
+def api_save_sop(agent_id: str, body: ProceduralSOPCreate):
+    return repo.save_procedural_sop(agent_id, body.trigger_condition, body.steps_json)
+
+
+@app.get("/api/v0.1/agents/{agent_id}/memory/sops", response_model=list[ProceduralSOPRead])
+def api_get_sops(agent_id: str):
+    return repo.get_procedural_sops(agent_id)
+
+
+# ─── Soul Reflection ───────────────────────────────────────────────────────
+
+@app.post("/api/v0.1/agents/{agent_id}/soul/history", response_model=SoulHistoryRead)
+def api_record_soul(agent_id: str, body: SoulHistoryCreate):
+    return repo.record_soul_history(
+        agent_id,
+        body.field_name,
+        body.old_value,
+        body.new_value,
+        body.reason,
+    )

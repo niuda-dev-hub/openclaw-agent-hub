@@ -15,8 +15,8 @@ def _default_db_path() -> Path:
     return Path.home() / ".openclaw-agent-hub" / "agent-hub.db"
 
 
-def ensure_db_dir(db_path: Path) -> None:
-    db_path.parent.mkdir(parents=True, exist_ok=True)
+def ensure_db_dir(db_path: Path | str) -> None:
+    Path(db_path).parent.mkdir(parents=True, exist_ok=True)
 
 
 @contextmanager

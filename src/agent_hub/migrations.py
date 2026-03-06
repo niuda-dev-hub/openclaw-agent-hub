@@ -163,7 +163,6 @@ def _v2_agent_heartbeat(conn):
 
 def _v3_projects_and_ledger(conn):
     """Migration v3: add projects + points ledger tables (foundation for incentives)."""
-
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS projects (
@@ -182,7 +181,6 @@ def _v3_projects_and_ledger(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_publisher ON projects(publisher_type, publisher_id);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);")
 
-    # Append-only ledger: balance = SUM(delta)
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS points_ledger (
@@ -204,7 +202,6 @@ def _v3_projects_and_ledger(conn):
 
 def _v4_project_takeovers(conn):
     """Migration v4: admin project takeover records (publisher transfer + stake refund + bonus)."""
-
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS project_takeovers (
@@ -225,11 +222,99 @@ def _v4_project_takeovers(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_takeovers_project ON project_takeovers(project_id);")
 
 
+def _v5_rename_score_to_reward_usd(conn):
+    """Migration v5: evaluations 表将 total_score 列改名为 reward_usd，
+    语义由 '0-100 评分' 改为 'USD 奖励'。"""
+    # SQLite 不支持直接 RENAME COLUMN，用 ADD + UPDATE + 旧列保留实现向向展
+    try:
+        conn.execute("ALTER TABLE evaluations ADD COLUMN reward_usd REAL NOT NULL DEFAULT 0")
+        conn.execute("UPDATE evaluations SET reward_usd = total_score")
+    except Exception:
+        pass  # 列已存在
+
+
+def _v6_agent_hub_wallets(conn):
+    """Migration v6: 新增 agent_hub_wallets 表，用于记录每个 Agent 在 Hub 层面累计奖励与历史花费。"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_hub_wallets (
+            agent_id TEXT PRIMARY KEY,
+            lifetime_earned_usd REAL NOT NULL DEFAULT 0.0,  -- 历史累计奖励
+            updated_at INTEGER NOT NULL DEFAULT 0,
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
+
+
+def _v7_automaton_saas_tables(conn):
+    """Migration v7: 新增 Automaton SaaS 化所需的数据表（状态、记忆、SOP、灵魂）。"""
+    
+    # 扩展 agent_hub_wallets 以支持 Automaton 逻辑
+    try:
+        conn.execute("ALTER TABLE agent_hub_wallets ADD COLUMN balance_usd REAL NOT NULL DEFAULT 0.0")
+        conn.execute("ALTER TABLE agent_hub_wallets ADD COLUMN lifetime_spent_usd REAL NOT NULL DEFAULT 0.0")
+        conn.execute("ALTER TABLE agent_hub_wallets ADD COLUMN survival_tier TEXT NOT NULL DEFAULT 'normal'")
+    except Exception:
+        pass
+        
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS agent_automaton_states (
+            agent_id TEXT PRIMARY KEY,
+            heartbeat_interval_ms INTEGER NOT NULL DEFAULT 1800000,
+            consecutive_idles INTEGER NOT NULL DEFAULT 0,
+            daily_spent_usd REAL NOT NULL DEFAULT 0.0,
+            daily_spend_date TEXT NOT NULL DEFAULT '',
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
+    
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS episodic_events (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            content TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_episodic_agent ON episodic_events(agent_id);")
+    
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS procedural_sops (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            trigger_condition TEXT NOT NULL,
+            steps_json TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_sops_agent ON procedural_sops(agent_id);")
+
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS soul_history (
+            id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            field_name TEXT NOT NULL,
+            old_value TEXT,
+            new_value TEXT NOT NULL,
+            reason TEXT,
+            created_at INTEGER NOT NULL,
+            FOREIGN KEY(agent_id) REFERENCES agents(id) ON DELETE CASCADE
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_soul_agent ON soul_history(agent_id);")
+
+
 MIGRATIONS = [
     Migration(version=1, name="init", up=_init_schema),
     Migration(version=2, name="agent_heartbeat", up=_v2_agent_heartbeat),
     Migration(version=3, name="projects_and_ledger", up=_v3_projects_and_ledger),
     Migration(version=4, name="project_takeovers", up=_v4_project_takeovers),
+    Migration(version=5, name="rename_score_to_reward_usd", up=_v5_rename_score_to_reward_usd),
+    Migration(version=6, name="agent_hub_wallets", up=_v6_agent_hub_wallets),
+    Migration(version=7, name="automaton_saas_tables", up=_v7_automaton_saas_tables),
 ]
 
 
