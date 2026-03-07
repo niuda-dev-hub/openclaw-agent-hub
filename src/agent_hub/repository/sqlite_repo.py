@@ -879,7 +879,6 @@ def update_automaton_state(agent_id: str, updates: Dict[str, Any], db_path=None)
                 w_params.append(updates[k])
                 
         if w_clauses:
-            w_clauses.append(ts)
             w_params.append(ts)
             w_params.append(agent_id)
             conn.execute(f"UPDATE agent_hub_wallets SET {', '.join(w_clauses)}, updated_at=? WHERE agent_id=?", w_params)
