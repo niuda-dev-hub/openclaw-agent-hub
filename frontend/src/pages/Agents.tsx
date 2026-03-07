@@ -95,7 +95,7 @@ function WalletPanel({ agentId }: { agentId: string }) {
                 <span>累计奖励</span>
                 <span style={{ color: 'var(--ok)' }}>+${wallet.lifetime_earned_usd.toFixed(4)}</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'space-between', flexWrap: 'wrap' }}>
                 <span style={{
                     padding: '1px 6px',
                     borderRadius: 4,
@@ -103,23 +103,24 @@ function WalletPanel({ agentId }: { agentId: string }) {
                     color: tierColor(wallet.survival_tier),
                     fontWeight: 600,
                     fontSize: 11,
+                    whiteSpace: 'nowrap'
                 }}>
                     {wallet.survival_tier === 'dead' ? '💀 dead' : `⚡ ${wallet.survival_tier}`}
                 </span>
-                <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
                     <input
                         type="number"
                         value={amount}
                         min="0.01"
                         step="1"
                         onChange={(e) => setAmount(e.target.value)}
-                        style={{ width: 60, fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)' }}
+                        style={{ width: 55, fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', minWidth: 0 }}
                     />
                     <button
                         className="btn btn-sm"
                         onClick={doFund}
                         disabled={funding}
-                        style={{ fontSize: 11, padding: '2px 8px' }}
+                        style={{ fontSize: 11, padding: '2px 8px', whiteSpace: 'nowrap', flexShrink: 0 }}
                     >
                         {funding ? '…' : '💸 打钱'}
                     </button>
@@ -201,20 +202,33 @@ export function Agents() {
                                             {t.agents.colLastSeen}: {a.last_heartbeat_at ? fmtTime(a.last_heartbeat_at) : t.agents.neverSeen}
                                         </div>
 
-                                        {/* 钱包面板 */}
-                                        <WalletPanel agentId={a.id} />
+                                        {/* 折叠区：钱包面板与配置模块 */}
+                                        <details style={{ marginTop: 12 }}>
+                                            <summary style={{ padding: '4px 0', outline: 'none' }}>📦 查看详细信息 (钱包与配置)</summary>
 
-                                        {/* 配置信息摘要展示 */}
-                                        <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-alt)', border: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                                                <span style={{ fontWeight: 600 }}>⚙️ Agent Config</span>
+                                            <div style={{ marginTop: 8 }}>
+                                                {/* 钱包面板 */}
+                                                <WalletPanel agentId={a.id} />
+
+                                                {/* 配置信息摘要展示 */}
+                                                <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-alt)', border: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                        <span style={{ fontWeight: 600 }}>⚙️ Agent Config</span>
+                                                    </div>
+                                                    <div style={{
+                                                        whiteSpace: 'pre-wrap',
+                                                        wordBreak: 'break-all',
+                                                        fontFamily: 'monospace',
+                                                        maxHeight: 120,
+                                                        overflowY: 'auto'
+                                                    }}>
+                                                        {a.config && Object.keys(a.config).length > 0
+                                                            ? JSON.stringify(a.config, null, 2)
+                                                            : '{} (无配置)'}
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace' }}>
-                                                {a.config && Object.keys(a.config).length > 0
-                                                    ? JSON.stringify(a.config).substring(0, 100) + (JSON.stringify(a.config).length > 100 ? '...' : '')
-                                                    : '{} (无配置)'}
-                                            </div>
-                                        </div>
+                                        </details>
                                     </div>
 
                                     {/* 操作 */}
