@@ -36,3 +36,15 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   }
   return (await res.json()) as T
 }
+
+/** 通用 DELETE 请求 */
+export async function apiDelete<T>(path: string): Promise<T> {
+  const res = await fetch(path, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(`API ${res.status}: ${text || res.statusText}`)
+  }
+  return (await res.json()) as T
+}

@@ -89,6 +89,15 @@ def api_patch_agent(agent_id: str, body: AgentUpdate):
     return a
 
 
+@app.delete("/api/v0.1/agents/{agent_id}")
+def api_delete_agent(agent_id: str):
+    success = repo.delete_agent(agent_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="agent_not_found")
+    repo.add_event(None, "agent_deleted", payload={"agent_id": agent_id})
+    return {"status": "ok", "deleted_id": agent_id}
+
+
 @app.post("/api/v0.1/agents/{agent_id}/heartbeat", response_model=AgentRead)
 def api_agent_heartbeat(agent_id: str):
     """Agent 心跳接口：Agent 定期调用此接口以表明自己在线。"""

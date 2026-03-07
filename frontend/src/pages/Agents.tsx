@@ -4,7 +4,7 @@
  * 新增：钱包余额面板（来自 automaton-lifecycle data.json）和充值按钮。
  */
 import { useEffect, useState, useCallback } from 'react'
-import { apiGet, apiPatch, apiPost } from '../api/client'
+import { apiGet, apiPatch, apiPost, apiDelete } from '../api/client'
 import { AgentStatusBadge } from '../components/AgentStatusBadge'
 import { EditAgentConfigModal } from '../components/EditAgentConfigModal'
 import { useI18n } from '../i18n'
@@ -161,6 +161,19 @@ export function Agents() {
         }
     }
 
+    const handleDelete = async (id: string, name: string) => {
+        const msg = t.agents.deleteConfirm.replace('{name}', name)
+        if (confirm(msg)) {
+            try {
+                await apiDelete(`/api/v0.1/agents/${id}`)
+                setAgents(agents.filter(a => a.id !== id))
+                alert(t.agents.deleteSuccess)
+            } catch (e: any) {
+                alert(t.agents.deleteError + ': ' + e.message)
+            }
+        }
+    }
+
     return (
         <div style={{ display: 'grid', gap: 16 }}>
             <div className="panel-header" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -245,6 +258,14 @@ export function Agents() {
                                             disabled={toggling === a.id}
                                         >
                                             {a.is_enabled ? t.agents.disable : t.agents.enable}
+                                        </button>
+                                        <button
+                                            className="btn btn-sm"
+                                            style={{ color: '#ff4d4f', borderColor: '#ff4d4f', background: 'transparent' }}
+                                            onClick={() => handleDelete(a.id, a.name)}
+                                            title={t.agents.deleteTitle}
+                                        >
+                                            🗑️ {t.agents.deleteTitle}
                                         </button>
                                     </div>
                                 </div>

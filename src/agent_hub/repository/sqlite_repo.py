@@ -330,6 +330,27 @@ def get_agent(agent_id: str, db_path=None) -> Optional[Dict[str, Any]]:
     }
 
 
+def delete_agent(agent_id: str, db_path=None) -> bool:
+    """删除指定的 Agent 及其关联的钱包和自动机状态数据。
+    
+    数据库使用 CASCADE 删除策略，故只需删除 agents 主记录即可自动清无关联数据。
+    """
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        # 启用 foreign-key support（SQLite 默认关闭）以触发 CASCADE
+        conn.execute("PRAGMA foreign_keys = ON")
+        # 手动兜底清理关联表（以防 PRAGMA 未生效或旧数据库）
+        conn.execute("DELETE FROM agent_hub_wallets WHERE agent_id = ?", (agent_id,))
+        conn.execute("DELETE FROM agent_automaton_states WHERE agent_id = ?", (agent_id,))
+        conn.execute("DELETE FROM episodic_events WHERE agent_id = ?", (agent_id,))
+        conn.execute("DELETE FROM procedural_sops WHERE agent_id = ?", (agent_id,))
+        conn.execute("DELETE FROM soul_history WHERE agent_id = ?", (agent_id,))
+        cursor = conn.execute("DELETE FROM agents WHERE id = ?", (agent_id,))
+        changes = cursor.rowcount
+        conn.commit()
+    return changes > 0
+
+
 def update_agent(agent_id: str, patch: Dict[str, Any], db_path=None) -> Optional[Dict[str, Any]]:
     _ensure_schema(db_path)
     cur = get_agent(agent_id, db_path=db_path)

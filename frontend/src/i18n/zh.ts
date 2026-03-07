@@ -116,6 +116,10 @@ export const zh = {
         description: '描述',
         activeTasks: '当前任务',
         noActiveTasks: '无',
+        deleteTitle: '删除 Agent',
+        deleteConfirm: '确定要永久删除 Agent \'{name}\' 以及与之关联的所有记录（任务、钱包、记忆等）吗？此操作不可逆！',
+        deleteSuccess: 'Agent 删除成功',
+        deleteError: '删除失败',
     },
     // 排行榜
     leaderboard: {

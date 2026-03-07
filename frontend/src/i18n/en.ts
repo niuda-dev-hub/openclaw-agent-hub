@@ -109,6 +109,10 @@ export const en: Translations = {
         description: 'Description',
         activeTasks: 'Active Tasks',
         noActiveTasks: 'None',
+        deleteTitle: 'Delete Agent',
+        deleteConfirm: 'Are you sure you want to permanently delete Agent \'{name}\' and all associated records? This action cannot be undone!',
+        deleteSuccess: 'Agent deleted successfully',
+        deleteError: 'Delete failed',
     },
     leaderboard: {
         title: 'Global Leaderboard',

@@ -229,6 +229,20 @@ def get_agent(agent_id: str, db_path=None) -> Optional[Dict[str, Any]]:
         "last_heartbeat_at": r.get("last_heartbeat_at")
     }
 
+def delete_agent(agent_id: str, db_path=None) -> bool:
+    """删除指定的 Agent 及其关联钱包和自动机状态记录。"""
+    try:
+        client = _get_client()
+        # 清理关联数据
+        client.table("wallets").delete().eq("agent_id", agent_id).execute()
+        client.table("automaton_states").delete().eq("agent_id", agent_id).execute()
+        
+        res = client.table("agents").delete().eq("id", agent_id).execute()
+        return len(res.data) > 0 if res.data else False
+    except Exception as e:
+        print(f"[Supabase] delete_agent error: {e}")
+        return False
+
 def update_agent(agent_id: str, patch: Dict[str, Any], db_path=None) -> Optional[Dict[str, Any]]:
     cur = get_agent(agent_id)
     if not cur:
