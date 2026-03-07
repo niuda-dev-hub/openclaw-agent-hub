@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+import re
 
 from .migrations import migrate
 from . import repo
@@ -54,6 +55,30 @@ def _startup() -> None:
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "openclaw-agent-hub"}
+
+
+@app.middleware("http")
+async def update_heartbeat_middleware(request: Request, call_next):
+    """
+    自动心跳中间件：
+    针对所有包含 agent_id 的请求路径，自动触发 repo.update_agent_heartbeat。
+    """
+    # 匹配模式：/api/v0.1/agents/{agent_id}/...
+    path = request.url.path
+    match = re.search(r"/api/v0.1/agents/([^/]+)", path)
+    
+    if match:
+        agent_id = match.group(1)
+        # 排除掉创建 Agent 的 POST 请求（那时候 ID 还没生成或在 body 里）
+        if request.method != "POST" or not path.endswith("/api/v0.1/agents"):
+            try:
+                # 异步静默刷新心跳
+                repo.update_agent_heartbeat(agent_id)
+            except Exception:
+                pass # 忽略心跳更新错误，不影响主业务逻辑
+
+    response = await call_next(request)
+    return response
 
 
 # Agents
