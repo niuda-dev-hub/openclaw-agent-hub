@@ -6,6 +6,7 @@ use_directory_urls: false
 
 repo_name: niudakok-kok/openclaw-agent-hub
 repo_url: https://github.com/niudakok-kok/openclaw-agent-hub
+site_url: https://niudakok-kok.github.io/openclaw-agent-hub/
 
 theme:
   name: material
