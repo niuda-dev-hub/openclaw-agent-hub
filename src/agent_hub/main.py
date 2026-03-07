@@ -30,6 +30,7 @@ from .schemas import (
     WalletState,
     FundRequest,
     AutomatonState,
+    AutomatonStateUpdate,
     EpisodicEventCreate,
     EpisodicEventRead,
     ProceduralSOPCreate,
@@ -336,12 +337,14 @@ def api_get_automaton_state(agent_id: str):
 
 
 @app.patch("/api/v0.1/agents/{agent_id}/automaton_state", response_model=AutomatonState)
-def api_update_automaton_state(agent_id: str, body: dict):
-    """局部更新 Automaton 状态。"""
+def api_update_automaton_state(agent_id: str, body: AutomatonStateUpdate):
+    """局部更新 Automaton 状态。仅允许更新非敏感字段。"""
     a = repo.get_agent(agent_id)
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
-    repo.update_automaton_state(agent_id, body)
+    
+    # 仅更新经 Pydantic 过滤后的、Agent 有权修改的字段
+    repo.update_automaton_state(agent_id, body.model_dump(exclude_unset=True))
     return repo.get_automaton_state(agent_id)
 
 
@@ -357,7 +360,9 @@ def api_get_agent_wallet(agent_id: str):
 
 @app.post("/api/v0.1/agents/{agent_id}/wallet/fund", response_model=WalletState)
 def api_fund_agent_wallet(agent_id: str, body: FundRequest):
-    """为 Agent 虚拟钱包注资。"""
+    """为 Agent 虚拟钱包注资。
+    TODO: 未来需补充 Admin 权限校验（如鉴权 Token 验证），防止普通用户或 Agent 随意调用。
+    """
     a = repo.get_agent(agent_id)
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")

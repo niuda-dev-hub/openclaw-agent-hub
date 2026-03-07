@@ -240,6 +240,14 @@ class AutomatonState(BaseModel):
     daily_spend_date: str
 
 
+class AutomatonStateUpdate(BaseModel):
+    """仅允许 Agent 自主更新的字段（白名单）。
+    禁止在此处添加 balance_usd, lifetime_spent_usd 等敏感字段。
+    """
+    heartbeat_interval_ms: Optional[int] = None
+    consecutive_idles: Optional[int] = None
+
+
 class EpisodicEventCreate(BaseModel):
     event_type: str
     content: str
