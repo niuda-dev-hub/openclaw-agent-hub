@@ -39,6 +39,7 @@ extra_css:
 
 # Left Navigation Mapping
 nav:
+  - 🔙 返回 Agent Hub: /
   - 首页 (简介): README.md
   - 系统规范与协作:
     - 项目开发规范: 软件项目开发规范.md
