@@ -42,6 +42,17 @@ function TopBar() {
 
         {/* 右侧操作区 */}
         <div className="topbar-actions">
+          {/* GitHub 源码 */}
+          <a
+            href="https://github.com/niudakok-kok/openclaw-agent-hub"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm"
+            title="查看源码"
+            style={{ textDecoration: 'none' }}
+          >
+            ⭐ GitHub
+          </a>
           {/* 文档外链 */}
           <a
             href="/docs/index.html"
