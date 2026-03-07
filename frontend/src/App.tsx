@@ -18,6 +18,20 @@ function TopBar() {
   const { t, lang, setLang } = useI18n()
   const { theme, setTheme } = useTheme()
 
+  const handleConfigApi = () => {
+    const current = localStorage.getItem('agent_hub_api_url') || import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
+    const next = window.prompt(lang === 'zh' ? '请输入后端 API 地址 (例如 http://127.0.0.1:8000):' : 'Enter Backend API URL (e.g. http://127.0.0.1:8000):', current);
+
+    if (next !== null) {
+      if (next.trim() === '') {
+        localStorage.removeItem('agent_hub_api_url');
+      } else {
+        localStorage.setItem('agent_hub_api_url', next.trim());
+      }
+      window.location.reload();
+    }
+  }
+
   return (
     <div className="topbar">
       <div className="topbar-inner">
@@ -79,6 +93,14 @@ function TopBar() {
             title={t.theme.label}
           >
             {theme === 'office' ? '🌙' : '☀️'}
+          </button>
+          {/* API 配置 */}
+          <button
+            className="btn btn-sm"
+            onClick={handleConfigApi}
+            title={lang === 'zh' ? '配置后端地址' : 'Config Backend URL'}
+          >
+            ⚙️
           </button>
         </div>
       </div>

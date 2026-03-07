@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.VITE_API_URL || '';
+// 优先从 localStorage 读取 API 地址，实现动态切换
+const STORE_KEY = 'agent_hub_api_url';
+const BASE_URL = localStorage.getItem(STORE_KEY) || import.meta.env.VITE_API_URL || '';
 
 /** 通用 GET 请求 */
 export async function apiGet<T>(path: string): Promise<T> {
