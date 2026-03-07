@@ -945,3 +945,109 @@ def record_soul_history(agent_id: str, field_name: str, old_value: Optional[str]
             (sid, agent_id, field_name, old_value, new_value, reason, ts)
         )
     return {"id": sid, "agent_id": agent_id, "field_name": field_name, "old_value": old_value, "new_value": new_value, "reason": reason, "created_at": ts}
+
+
+# ─── Dev Tasks (Run 级别的开发子任务) ─────────────────────────────────────────
+
+def create_dev_task(run_id: str, data: Dict[str, Any], db_path=None) -> Dict[str, Any]:
+    """为指定的 Run 创建一个开发子任务。"""
+    _ensure_schema(db_path)
+    task_id = new_id()
+    ts = now_ms()
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "INSERT INTO dev_tasks(id, run_id, title, description, priority, status, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)",
+            (
+                task_id,
+                run_id,
+                data["title"],
+                data.get("description"),
+                data.get("priority", 3),
+                data.get("status", "pending"),
+                ts,
+                ts,
+            ),
+        )
+    return get_dev_task(task_id, db_path=db_path)
+
+
+def get_dev_task(task_id: str, db_path=None) -> Optional[Dict[str, Any]]:
+    """获取指定开发子任务。"""
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        r = conn.execute("SELECT * FROM dev_tasks WHERE id=?", (task_id,)).fetchone()
+    if not r:
+        return None
+    return {
+        "id": r["id"],
+        "run_id": r["run_id"],
+        "title": r["title"],
+        "description": r["description"],
+        "priority": r["priority"],
+        "status": r["status"],
+        "created_at": r["created_at"],
+        "updated_at": r["updated_at"],
+    }
+
+
+def update_dev_task(task_id: str, patch: Dict[str, Any], db_path=None) -> Optional[Dict[str, Any]]:
+    """更新开发子任务。"""
+    _ensure_schema(db_path)
+    cur = get_dev_task(task_id, db_path=db_path)
+    if not cur:
+        return None
+    ts = now_ms()
+    merged = {
+        "title": patch.get("title", cur["title"]),
+        "description": patch.get("description", cur["description"]),
+        "priority": patch.get("priority", cur["priority"]),
+        "status": patch.get("status", cur["status"]),
+    }
+    with get_conn(db_path) as conn:
+        conn.execute(
+            "UPDATE dev_tasks SET title=?, description=?, priority=?, status=?, updated_at=? WHERE id=?",
+            (merged["title"], merged["description"], merged["priority"], merged["status"], ts, task_id),
+        )
+    return get_dev_task(task_id, db_path=db_path)
+
+
+def list_dev_tasks_by_run(run_id: str, db_path=None) -> List[Dict[str, Any]]:
+    """列出指定 Run 的所有开发子任务。"""
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT id FROM dev_tasks WHERE run_id=? ORDER BY priority ASC, created_at ASC",
+            (run_id,),
+        ).fetchall()
+    return [get_dev_task(r[0], db_path=db_path) for r in rows if r]
+
+
+def get_dev_task_progress(run_id: str, db_path=None) -> Dict[str, Any]:
+    """获取指定 Run 的开发进度统计。"""
+    _ensure_schema(db_path)
+    with get_conn(db_path) as conn:
+        rows = conn.execute(
+            "SELECT status, COUNT(*) as count FROM dev_tasks WHERE run_id=? GROUP BY status",
+            (run_id,),
+        ).fetchall()
+
+    stats = {"pending": 0, "in_progress": 0, "done": 0, "failed": 0}
+    total = 0
+    for r in rows:
+        status = r["status"]
+        count = r["count"]
+        if status in stats:
+            stats[status] = count
+        total += count
+
+    progress_pct = round((stats["done"] / total * 100), 1) if total > 0 else 0.0
+
+    return {
+        "run_id": run_id,
+        "total": total,
+        "done": stats["done"],
+        "in_progress": stats["in_progress"],
+        "pending": stats["pending"],
+        "failed": stats["failed"],
+        "progress_pct": progress_pct,
+    }
