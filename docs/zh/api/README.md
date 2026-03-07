@@ -185,3 +185,86 @@ curl -X POST "http://127.0.0.1:8000/api/v0.1/runs/<run_id>/dev-tasks" \
 - 本文档力求保持**路径稳定**与**最小惊讶原则**：新协作者拿到仓库后，只需看完 Quickstart + 本页，即可完成本地跑通与基本集成；
 - 如果你在使用过程中发现示例与实际行为不一致，欢迎在对应 Issue 下留言或直接提 PR 进行修正。
 
+## 七、Automaton SaaS API（与 lifecycle 插件对接）
+
+除任务主链路外，`openclaw-agent-hub` 还对 `openclaw-automaton-lifecycle` 提供一组 Agent 生存态相关接口。
+
+> 权威路径以 `/openapi.json` 与 `src/agent_hub/main.py` 为准。
+
+### 7.1 端点索引
+
+- `GET /api/v0.1/agents/{agent_id}/automaton_state`
+- `PATCH /api/v0.1/agents/{agent_id}/automaton_state`
+- `GET /api/v0.1/agents/{agent_id}/wallet`
+- `POST /api/v0.1/agents/{agent_id}/wallet/fund`
+- `POST /api/v0.1/agents/{agent_id}/heartbeat`
+- `POST /api/v0.1/agents/{agent_id}/memory/events`
+- `GET /api/v0.1/agents/{agent_id}/memory/events`
+- `POST /api/v0.1/agents/{agent_id}/memory/sops`
+- `GET /api/v0.1/agents/{agent_id}/memory/sops`
+- `POST /api/v0.1/agents/{agent_id}/soul/history`
+
+### 7.2 示例：读取/更新 Automaton State
+
+```bash
+# 读取当前状态
+curl -X GET "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/automaton_state" \
+  -H "Accept: application/json"
+
+# 更新部分状态（例如心跳间隔与连续 idle 次数）
+curl -X PATCH "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/automaton_state" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "heartbeat_interval_ms": 300000,
+    "consecutive_idles": 2
+  }'
+```
+
+### 7.3 示例：记忆事件与 SOP
+
+```bash
+# 记录一条事件记忆
+curl -X POST "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/memory/events" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "event_type": "pending",
+    "content": "需要补充 API 文档中的 Automaton 章节"
+  }'
+
+# 查询最近事件
+curl -X GET "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/memory/events?event_type=pending&limit=10" \
+  -H "Accept: application/json"
+
+# 保存 SOP 模板
+curl -X POST "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/memory/sops" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "trigger_condition": "文档更新后回归检查",
+    "steps_json": "[\"运行 pytest -q\", \"检查 /openapi.json\", \"更新 docs/zh/api/README.md\"]"
+  }'
+```
+
+### 7.4 示例：心跳与 soul history
+
+```bash
+# 上报心跳
+curl -X POST "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/heartbeat" \
+  -H "Content-Type: application/json" \
+  -d '{}'
+
+# 记录一次 soul 历史变更
+curl -X POST "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/soul/history" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "field_name": "tone",
+    "old_value": "谨慎",
+    "new_value": "谨慎且主动",
+    "reason": "提升协作效率"
+  }'
+```
+
+### 7.5 兼容性说明
+
+- `wallet/fund` 当前用于开发/管理场景，后续建议补齐更严格的权限控制；
+- 对接插件时，建议优先使用 `automaton_state` 作为状态主视图，`wallet` 用于向后兼容查询。
+
