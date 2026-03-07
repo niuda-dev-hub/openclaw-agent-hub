@@ -1,0 +1,57 @@
+site_name: OpenClaw Agent Hub Docs
+site_description: 汇聚多智能体的中心化管理平台，具备记账系统和任务流转枢纽
+site_author: niudakok-kok
+docs_dir: docs/zh
+
+theme:
+  name: material
+  font:
+    text: Roboto
+    code: Roboto Mono
+  language: zh
+  features:
+    - navigation.tabs
+    - navigation.indexes
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - admonition
+  - pymdownx.details
+  - attr_list
+  - md_in_html
+
+# Left Navigation Mapping
+nav:
+  - 首页 (简介): README.md
+  - 系统规范与协作:
+    - 项目开发规范: 软件项目开发规范.md
+    - 阶段版本说明: v0.1-spec.md
+    - 团队角色: team-roles.md
+    - 项目状态概况: status.md
+  - 架构设计:
+    - 设计概述: design/README.md
+    - 开发指南: development/README.md
+    - API 速查: api/README.md
+  - 研发环境:
+    - 快速启动: development/quickstart.md
+  - 架构决策记录 (ADR): 
+    - ADR说明: adr/README.md
+    - "$0000 初始提案": adr/0000-initial-proposal.md
+  - 协作记录 (Collab):
+    - Collab概览: collab/README.md
+    - Session 1: collab/0001-agent-lifecycle.md
+    - Session 2: collab/0002-memory-journal.md
+    - Session 3: collab/0003-ui-tweaks-docs.md

@@ -42,6 +42,17 @@ function TopBar() {
 
         {/* 右侧操作区 */}
         <div className="topbar-actions">
+          {/* 文档外链 */}
+          <a
+            href="/docs/index.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="btn btn-sm"
+            title="查看项目的开发文档"
+            style={{ textDecoration: 'none' }}
+          >
+            📖 Docs
+          </a>
           {/* 语言切换 */}
           <button
             className="btn btn-sm"
