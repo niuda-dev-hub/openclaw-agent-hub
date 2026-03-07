@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from fastapi import FastAPI, HTTPException, Request
 import re
+import os
+import secrets
 
 from .migrations import migrate
 from . import repo
@@ -45,6 +47,35 @@ from .schemas import (
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
+
+
+def _extract_admin_token(request: Request) -> str:
+    """Extract admin token from supported headers.
+
+    Priority:
+    1) Authorization: Bearer <token>
+    2) X-Admin-Token: <token>
+    """
+    auth_header = request.headers.get("authorization", "").strip()
+    if auth_header.lower().startswith("bearer "):
+        return auth_header[7:].strip()
+    return request.headers.get("x-admin-token", "").strip()
+
+
+def _require_admin_fund_token(request: Request) -> None:
+    """Require admin token for sensitive wallet funding endpoint.
+
+    Security policy: fail closed.
+    - If AGENT_HUB_ADMIN_FUND_TOKEN is missing/empty, funding is disabled.
+    - Client must provide matching token via Authorization Bearer or X-Admin-Token.
+    """
+    expected = os.getenv("AGENT_HUB_ADMIN_FUND_TOKEN", "").strip()
+    if not expected:
+        raise HTTPException(status_code=403, detail="funding_disabled_missing_admin_token")
+
+    provided = _extract_admin_token(request)
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=403, detail="forbidden_admin_token")
 
 
 @app.on_event("startup")
@@ -393,10 +424,10 @@ def api_get_agent_wallet(agent_id: str):
 
 
 @app.post("/api/v0.1/agents/{agent_id}/wallet/fund", response_model=WalletState)
-def api_fund_agent_wallet(agent_id: str, body: FundRequest):
-    """为 Agent 虚拟钱包注资。
-    TODO: 未来需补充 Admin 权限校验（如鉴权 Token 验证），防止普通用户或 Agent 随意调用。
-    """
+def api_fund_agent_wallet(agent_id: str, body: FundRequest, request: Request):
+    """为 Agent 虚拟钱包注资（需 Admin Token）。"""
+    _require_admin_fund_token(request)
+
     a = repo.get_agent(agent_id)
     if not a:
         raise HTTPException(status_code=404, detail="agent_not_found")
@@ -418,7 +449,7 @@ def api_record_event(agent_id: str, body: EpisodicEventCreate):
 
 
 @app.get("/api/v0.1/agents/{agent_id}/memory/events", response_model=list[EpisodicEventRead])
-def api_get_events(agent_id: str, event_type: str = None, limit: int = 10):
+def api_get_events(agent_id: str, event_type: str | None = None, limit: int = 10):
     return repo.get_episodic_events(agent_id, event_type, limit)
 
 

@@ -268,3 +268,14 @@ curl -X POST "http://127.0.0.1:8000/api/v0.1/agents/<agent_id>/soul/history" \
 - `wallet/fund` 当前用于开发/管理场景，后续建议补齐更严格的权限控制；
 - 对接插件时，建议优先使用 `automaton_state` 作为状态主视图，`wallet` 用于向后兼容查询。
 
+### 7.6 安全约束（wallet/fund）
+
+从安全加固版本开始，`POST /api/v0.1/agents/{agent_id}/wallet/fund` 需要服务端与调用方同时满足 Admin Token 校验：
+
+- 服务端环境变量：`AGENT_HUB_ADMIN_FUND_TOKEN`
+- 客户端可通过以下任一方式传递：
+  - `Authorization: Bearer <token>`
+  - `X-Admin-Token: <token>`
+
+若服务端未配置 `AGENT_HUB_ADMIN_FUND_TOKEN`，该端点默认拒绝请求（fail-closed，返回 403）。
+
