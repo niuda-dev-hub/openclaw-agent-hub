@@ -1,0 +1,63 @@
+/* 自定义 MkDocs 紧凑样式表 */
+
+/* 减小正文的最大宽度使其能显示更多内容，或者反过来增加最大宽度 */
+.md-grid {
+    max-width: 90vw;
+}
+
+/* 缩小行高与字体大小 */
+body, .md-typeset {
+    font-size: 0.75rem !important;
+    line-height: 1.4 !important;
+}
+
+/* 缩减各级标题级的留白 */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+    margin: 0.5em 0 0.5em 0 !important;
+    line-height: 1.25 !important;
+}
+
+/* 降低段落与列表的上下间距 */
+.md-typeset p,
+.md-typeset ul,
+.md-typeset ol,
+.md-typeset blockquote,
+.md-typeset pre {
+    margin: 0.5em 0 !important;
+}
+
+/* 代码段落内边距缩小 */
+.md-typeset pre > code {
+    padding: 0.5em !important;
+}
+.md-typeset p code {
+    padding: 0 0.2em !important;
+}
+
+/* 侧边导航栏内容更加紧凑 */
+.md-nav__link, .md-nav__item {
+    font-size: 0.7rem !important;
+    line-height: 1.1 !important;
+    padding-top: 2px !important;
+    padding-bottom: 2px !important;
+}
+
+/* 减小主页眉的高度，使其不占用空间 */
+.md-header {
+    height: 2.5rem !important;
+}
+.md-tabs {
+    height: 2.2rem !important;
+}
+
+/* 表格更加紧凑 */
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+    padding: 0.3em 0.5em !important;
+    font-size: 0.7rem !important;
+}

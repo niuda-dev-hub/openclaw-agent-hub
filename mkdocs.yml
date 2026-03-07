@@ -34,6 +34,9 @@ markdown_extensions:
   - attr_list
   - md_in_html
 
+extra_css:
+  - stylesheets/extra.css
+
 # Left Navigation Mapping
 nav:
   - 首页 (简介): README.md
@@ -44,15 +47,17 @@ nav:
     - 项目状态概况: status.md
   - 架构设计:
     - 设计概述: design/README.md
+    - 架构详述: design/architecture.md
     - 开发指南: development/README.md
     - API 速查: api/README.md
   - 研发环境:
-    - 快速启动: development/quickstart.md
+    - 快速启动: development/dev/quickstart.md
   - 架构决策记录 (ADR): 
     - ADR说明: adr/README.md
-    - "$0000 初始提案": adr/0000-initial-proposal.md
+    - "0001: 存储双引擎抽象": adr/0001-storage-abstraction.md
   - 协作记录 (Collab):
     - Collab概览: collab/README.md
-    - Session 1: collab/0001-agent-lifecycle.md
-    - Session 2: collab/0002-memory-journal.md
-    - Session 3: collab/0003-ui-tweaks-docs.md
+    - Issue 工作流: collab/issue-pr-process.md
+    - 新人导览: collab/onboarding.md
+    - 凭据管理: collab/secrets-policy.md
+    - 代理注册表: collab/agents-registry.md
