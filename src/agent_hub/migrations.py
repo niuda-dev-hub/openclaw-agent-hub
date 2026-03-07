@@ -307,6 +307,25 @@ def _v7_automaton_saas_tables(conn):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_soul_agent ON soul_history(agent_id);")
 
 
+def _v8_dev_tasks(conn):
+    """Migration v8: 新增 dev_tasks 表，支持 Run 级别的开发子任务。"""
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS dev_tasks (
+            id TEXT PRIMARY KEY,
+            run_id TEXT NOT NULL,
+            title TEXT NOT NULL,
+            description TEXT,
+            priority INTEGER DEFAULT 3,
+            status TEXT DEFAULT 'pending',
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL,
+            FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
+        )
+    """)
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_dev_tasks_run ON dev_tasks(run_id);")
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_dev_tasks_status ON dev_tasks(status);")
+
+
 MIGRATIONS = [
     Migration(version=1, name="init", up=_init_schema),
     Migration(version=2, name="agent_heartbeat", up=_v2_agent_heartbeat),
@@ -315,6 +334,7 @@ MIGRATIONS = [
     Migration(version=5, name="rename_score_to_reward_usd", up=_v5_rename_score_to_reward_usd),
     Migration(version=6, name="agent_hub_wallets", up=_v6_agent_hub_wallets),
     Migration(version=7, name="automaton_saas_tables", up=_v7_automaton_saas_tables),
+    Migration(version=8, name="dev_tasks", up=_v8_dev_tasks),
 ]
 
 

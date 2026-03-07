@@ -55,6 +55,36 @@ interface DecisionRead {
   created_at: number
 }
 
+interface RunRead {
+  id: string
+  task_id: string
+  agent_id: string
+  status: string
+  started_at?: number | null
+  finished_at?: number | null
+}
+
+interface DevTaskRead {
+  id: string
+  run_id: string
+  title: string
+  description?: string | null
+  priority: number
+  status: string
+  created_at: number
+  updated_at: number
+}
+
+interface DevTaskProgress {
+  run_id: string
+  total: number
+  done: number
+  in_progress: number
+  pending: number
+  failed: number
+  progress_pct: number
+}
+
 /** 安全 JSON parse，失败返回 null */
 function safeParse(s: unknown) {
   try { return JSON.parse(String(s)) } catch { return null }
@@ -65,20 +95,24 @@ export function TaskDetail() {
   const { t } = useI18n()
 
   const [task, setTask] = useState<TaskRead | null>(null)
+  const [runs, setRuns] = useState<RunRead[]>([])
+  const [devTasksMap, setDevTasksMap] = useState<Record<string, DevTaskRead[]>>({})
+  const [progressMap, setProgressMap] = useState<Record<string, DevTaskProgress>>({})
   const [subs, setSubs] = useState<SubmissionRead[]>([])
   const [evals, setEvals] = useState<EvaluationRead[]>([])
   const [decision, setDecision] = useState<DecisionRead | null>(null)
   const [events, setEvents] = useState<EventRead[]>([])
   const [err, setErr] = useState('')
   const [showAssign, setShowAssign] = useState(false)
-  const [activeTab, setActiveTab] = useState<'subs' | 'evals' | 'events'>('subs')
+  const [activeTab, setActiveTab] = useState<'runs' | 'subs' | 'evals' | 'events'>('runs')
 
   const load = useCallback(async () => {
     if (!taskId) return
     setErr('')
     try {
-      const [taskRes, subsRes, evalsRes, decRes, eventsRes] = await Promise.allSettled([
+      const [taskRes, runsRes, subsRes, evalsRes, decRes, eventsRes] = await Promise.allSettled([
         apiGet<TaskRead>(`/api/v0.1/tasks/${taskId}`),
+        apiGet<RunRead[]>(`/api/v0.1/tasks/${taskId}/runs`),
         apiGet<SubmissionRead[]>(`/api/v0.1/tasks/${taskId}/submissions`),
         apiGet<EvaluationRead[]>(`/api/v0.1/tasks/${taskId}/evaluations`),
         apiGet<DecisionRead>(`/api/v0.1/tasks/${taskId}/decision`),
@@ -86,6 +120,34 @@ export function TaskDetail() {
       ])
       if (taskRes.status === 'fulfilled') setTask(taskRes.value)
       else setErr(String(taskRes.reason))
+      
+      // 加载 runs
+      if (runsRes.status === 'fulfilled') {
+        const runsData = runsRes.value
+        setRuns(runsData)
+        
+        // 加载每个 run 的 dev-tasks 和进度
+        const devTasksResult: Record<string, DevTaskRead[]> = {}
+        const progressResult: Record<string, DevTaskProgress> = {}
+        
+        for (const run of runsData) {
+          try {
+            const [devTasks, progress] = await Promise.all([
+              apiGet<DevTaskRead[]>(`/api/v0.1/runs/${run.id}/dev-tasks`),
+              apiGet<DevTaskProgress>(`/api/v0.1/runs/${run.id}/dev-tasks/progress`),
+            ])
+            devTasksResult[run.id] = devTasks
+            progressResult[run.id] = progress
+          } catch {
+            devTasksResult[run.id] = []
+            progressResult[run.id] = { run_id: run.id, total: 0, done: 0, in_progress: 0, pending: 0, failed: 0, progress_pct: 0 }
+          }
+        }
+        
+        setDevTasksMap(devTasksResult)
+        setProgressMap(progressResult)
+      }
+      
       if (subsRes.status === 'fulfilled') setSubs(subsRes.value)
       if (evalsRes.status === 'fulfilled') setEvals(evalsRes.value)
       if (decRes.status === 'fulfilled') setDecision(decRes.value)
@@ -153,6 +215,12 @@ export function TaskDetail() {
       <div className="panel" style={{ padding: 0 }}>
         <div className="tabs" style={{ margin: 0, padding: '0 12px' }}>
           <button
+            className={`tab-btn${activeTab === 'runs' ? ' active' : ''}`}
+            onClick={() => setActiveTab('runs')}
+          >
+            开发进度 ({runs.length})
+          </button>
+          <button
             className={`tab-btn${activeTab === 'subs' ? ' active' : ''}`}
             onClick={() => setActiveTab('subs')}
           >
@@ -173,7 +241,62 @@ export function TaskDetail() {
         </div>
 
         <div style={{ padding: 12 }}>
-          {/* 提交产物 */}
+          {/* 开发进度 - Runs */}
+          {activeTab === 'runs' && (
+            runs.length === 0
+              ? <div style={{ color: 'var(--muted)' }}>暂无参与 Agent</div>
+              : (
+                <div style={{ display: 'grid', gap: 12 }}>
+                  {runs.map((run) => {
+                    const devTasks = devTasksMap[run.id] || []
+                    const progress = progressMap[run.id]
+                    return (
+                      <div key={run.id} className="panel" style={{ boxShadow: 'none', padding: 12 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <div>
+                            <span className="badge info">Agent: {shortId(run.agent_id)}</span>
+                            <span className={`badge ${statusClass(run.status)}`} style={{ marginLeft: 8 }}>{run.status}</span>
+                          </div>
+                          {progress && progress.total > 0 && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{ width: 100, height: 6, background: 'var(--bg)', borderRadius: 3, overflow: 'hidden' }}>
+                                <div style={{ width: `${progress.progress_pct}%`, height: '100%', background: progress.progress_pct === 100 ? 'var(--ok)' : 'var(--accent)', transition: 'width 0.3s' }} />
+                              </div>
+                              <span style={{ fontSize: 12, color: 'var(--muted)' }}>{progress.progress_pct}%</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* 开发子任务列表 */}
+                        {devTasks.length > 0 && (
+                          <div style={{ marginTop: 8 }}>
+                            <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>开发子任务:</div>
+                            <div style={{ display: 'grid', gap: 4 }}>
+                              {devTasks.map((dt) => (
+                                <div key={dt.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                                  <span className={`badge ${dt.status === 'done' ? 'ok' : dt.status === 'failed' ? 'error' : dt.status === 'in_progress' ? 'warn' : ''}`}>
+                                    {dt.status === 'done' ? '✓' : dt.status === 'failed' ? '✗' : dt.status === 'in_progress' ? '→' : '○'}
+                                  </span>
+                                  <span style={{ flex: 1 }}>{dt.title}</span>
+                                  <span style={{ color: 'var(--muted)', fontSize: 10 }}>{fmtTime(dt.updated_at)}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {progress && (
+                          <div style={{ marginTop: 8, fontSize: 11, color: 'var(--muted)' }}>
+                            进度: {progress.done}/{progress.total} 完成, {progress.in_progress} 进行中, {progress.pending} 待处理
+                            {progress.failed > 0 && <span style={{ color: 'var(--error)', marginLeft: 8 }}>• {progress.failed} 失败</span>}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+          )}
           {activeTab === 'subs' && (
             subs.length === 0
               ? <div style={{ color: 'var(--muted)' }}>{t.taskDetail.noSubmissions}</div>

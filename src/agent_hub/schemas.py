@@ -282,3 +282,41 @@ class SoulHistoryRead(BaseModel):
     new_value: str
     reason: Optional[str] = None
     created_at: int
+
+
+# =====================================================================
+# Dev Tasks - Run 级别的开发子任务
+# =====================================================================
+
+class DevTaskCreate(BaseModel):
+    title: str
+    description: Optional[str] = None
+    priority: int = 3
+
+
+class DevTaskRead(BaseModel):
+    id: str
+    run_id: str
+    title: str
+    description: Optional[str] = None
+    priority: int
+    status: str  # pending/in_progress/done/failed
+    created_at: int
+    updated_at: int
+
+
+class DevTaskUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[int] = None
+    status: Optional[str] = None
+
+
+class DevTaskProgress(BaseModel):
+    run_id: str
+    total: int
+    done: int
+    in_progress: int
+    pending: int
+    failed: int
+    progress_pct: float

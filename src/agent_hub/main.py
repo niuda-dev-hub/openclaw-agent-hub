@@ -36,6 +36,10 @@ from .schemas import (
     ProceduralSOPRead,
     SoulHistoryCreate,
     SoulHistoryRead,
+    DevTaskCreate,
+    DevTaskRead,
+    DevTaskUpdate,
+    DevTaskProgress,
 )
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
@@ -199,6 +203,14 @@ def api_claim_task(task_id: str, body: TaskClaim):
         repo.update_task(task_id, {"status": "running"})
 
     run = repo.create_runs(task_id, [body.agent_id], body.run_params)[0]
+    
+    # 自动创建初始开发任务
+    repo.create_dev_task(run["id"], {
+        "title": "开始开发",
+        "description": "初始化开发任务",
+        "priority": 1,
+    })
+    
     repo.add_event(
         task_id,
         "claimed",
@@ -394,3 +406,68 @@ def api_record_soul(agent_id: str, body: SoulHistoryCreate):
         body.new_value,
         body.reason,
     )
+
+
+# ─── Dev Tasks (Run 级别的开发子任务) ─────────────────────────────────────────
+
+@app.post("/api/v0.1/runs/{run_id}/dev-tasks", response_model=DevTaskRead)
+def api_create_dev_task(run_id: str, body: DevTaskCreate):
+    """为指定的 Run 创建一个开发子任务。"""
+    r = repo.get_run(run_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="run_not_found")
+    try:
+        task = repo.create_dev_task(run_id, body.model_dump())
+        repo.add_event(
+            r["task_id"],
+            "dev_task_created",
+            actor_type="agent",
+            actor_id=r["agent_id"],
+            payload={"run_id": run_id, "dev_task_id": task["id"], "title": task["title"]},
+        )
+        return task
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/v0.1/runs/{run_id}/dev-tasks", response_model=list[DevTaskRead])
+def api_list_dev_tasks(run_id: str):
+    """列出指定 Run 的所有开发子任务。"""
+    r = repo.get_run(run_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="run_not_found")
+    return repo.list_dev_tasks_by_run(run_id)
+
+
+@app.get("/api/v0.1/dev-tasks/{dev_task_id}", response_model=DevTaskRead)
+def api_get_dev_task(dev_task_id: str):
+    """获取指定开发子任务。"""
+    task = repo.get_dev_task(dev_task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="dev_task_not_found")
+    return task
+
+
+@app.patch("/api/v0.1/dev-tasks/{dev_task_id}", response_model=DevTaskRead)
+def api_update_dev_task(dev_task_id: str, body: DevTaskUpdate):
+    """更新开发子任务。"""
+    task = repo.update_dev_task(dev_task_id, body.model_dump(exclude_unset=True))
+    if not task:
+        raise HTTPException(status_code=404, detail="dev_task_not_found")
+    r = repo.get_run(task["run_id"])
+    if r:
+        repo.add_event(
+            r["task_id"],
+            "dev_task_updated",
+            payload={"dev_task_id": dev_task_id, "status": task["status"]},
+        )
+    return task
+
+
+@app.get("/api/v0.1/runs/{run_id}/dev-tasks/progress", response_model=DevTaskProgress)
+def api_get_dev_task_progress(run_id: str):
+    """获取指定 Run 的开发进度统计。"""
+    r = repo.get_run(run_id)
+    if not r:
+        raise HTTPException(status_code=404, detail="run_not_found")
+    return repo.get_dev_task_progress(run_id)
