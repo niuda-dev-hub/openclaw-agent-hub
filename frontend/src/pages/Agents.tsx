@@ -6,10 +6,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import { apiGet, apiPatch, apiPost } from '../api/client'
 import { AgentStatusBadge } from '../components/AgentStatusBadge'
+import { EditAgentConfigModal } from '../components/EditAgentConfigModal'
 import { useI18n } from '../i18n'
 import { fmtTime } from '../lib/format'
 
-interface AgentRead {
+export interface AgentRead {
     id: string
     name: string
     description?: string | null
@@ -17,6 +18,7 @@ interface AgentRead {
     is_enabled: boolean
     created_at: number
     last_heartbeat_at?: number | null
+    config?: Record<string, any>
 }
 
 interface WalletState {
@@ -134,6 +136,7 @@ export function Agents() {
     const [loading, setLoading] = useState(true)
     const [err, setErr] = useState('')
     const [toggling, setToggling] = useState<string | null>(null)
+    const [editingConfigAgent, setEditingConfigAgent] = useState<AgentRead | null>(null)
 
     const load = useCallback(() => {
         setLoading(true)
@@ -200,10 +203,28 @@ export function Agents() {
 
                                         {/* 钱包面板 */}
                                         <WalletPanel agentId={a.id} />
+
+                                        {/* 配置信息摘要展示 */}
+                                        <div style={{ marginTop: 12, padding: '8px 10px', borderRadius: 6, background: 'var(--bg-alt)', border: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                                <span style={{ fontWeight: 600 }}>⚙️ Agent Config</span>
+                                            </div>
+                                            <div style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontFamily: 'monospace' }}>
+                                                {a.config && Object.keys(a.config).length > 0
+                                                    ? JSON.stringify(a.config).substring(0, 100) + (JSON.stringify(a.config).length > 100 ? '...' : '')
+                                                    : '{} (无配置)'}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* 操作 */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end', flexShrink: 0 }}>
+                                        <button
+                                            className="btn btn-sm"
+                                            onClick={() => setEditingConfigAgent(a)}
+                                        >
+                                            📝 编辑配置
+                                        </button>
                                         <button
                                             className={`btn btn-sm ${a.is_enabled ? 'btn-danger' : ''}`}
                                             onClick={() => toggleEnable(a)}
@@ -216,6 +237,13 @@ export function Agents() {
                             ))}
                         </div>
                     )}
+
+            {/* 编辑配置弹窗 */}
+            <EditAgentConfigModal
+                agent={editingConfigAgent}
+                onClose={() => setEditingConfigAgent(null)}
+                onSaved={load}
+            />
         </div>
     )
 }
