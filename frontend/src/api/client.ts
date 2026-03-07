@@ -1,6 +1,9 @@
+const BASE_URL = import.meta.env.VITE_API_URL || '';
+
 /** 通用 GET 请求 */
 export async function apiGet<T>(path: string): Promise<T> {
-  const res = await fetch(path)
+  const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  const res = await fetch(url)
   if (!res.ok) {
     // 404 可能是正常的（如 decision 不存在），允许上层处理
     const text = await res.text().catch(() => '')
@@ -11,7 +14,8 @@ export async function apiGet<T>(path: string): Promise<T> {
 
 /** 通用 POST 请求 */
 export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  const res = await fetch(url, {
     method: 'POST',
     headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
     body: body !== undefined ? JSON.stringify(body) : undefined,
@@ -25,7 +29,8 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
 
 /** 通用 PATCH 请求 */
 export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+  const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  const res = await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -39,7 +44,8 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
 
 /** 通用 DELETE 请求 */
 export async function apiDelete<T>(path: string): Promise<T> {
-  const res = await fetch(path, {
+  const url = path.startsWith('http') ? path : `${BASE_URL}${path}`;
+  const res = await fetch(url, {
     method: 'DELETE',
   })
   if (!res.ok) {
