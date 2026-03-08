@@ -4,7 +4,7 @@
  * 新增：钱包余额面板（来自 automaton-lifecycle data.json）和充值按钮。
  */
 import { useEffect, useState, useCallback } from 'react'
-import { apiGet, apiPatch, apiPost, apiDelete } from '../api/client'
+import { apiGet, apiPatch, apiPost, apiDelete, getAdminToken, setAdminToken } from '../api/client'
 import { AgentStatusBadge } from '../components/AgentStatusBadge'
 import { EditAgentConfigModal } from '../components/EditAgentConfigModal'
 import { useI18n } from '../i18n'
@@ -45,6 +45,7 @@ function WalletPanel({ agentId }: { agentId: string }) {
     const [wallet, setWallet] = useState<WalletState | null>(null)
     const [funding, setFunding] = useState(false)
     const [amount, setAmount] = useState('10')
+    const [adminToken, setAdminTokenInput] = useState(getAdminToken())
     const [err, setErr] = useState('')
 
     const loadWallet = useCallback(() => {
@@ -58,9 +59,11 @@ function WalletPanel({ agentId }: { agentId: string }) {
     const doFund = async () => {
         const amt = parseFloat(amount)
         if (isNaN(amt) || amt <= 0) { setErr('金额必须大于 0'); return }
+        if (!adminToken.trim()) { setErr('请输入 Admin Token'); return }
         setErr('')
         setFunding(true)
         try {
+            setAdminToken(adminToken.trim())
             const updated = await apiPost<WalletState>(`/api/v0.1/agents/${agentId}/wallet/fund`, { amount_usd: amt })
             setWallet(updated)
         } catch (e) {
@@ -108,6 +111,13 @@ function WalletPanel({ agentId }: { agentId: string }) {
                     {wallet.survival_tier === 'dead' ? '💀 dead' : `⚡ ${wallet.survival_tier}`}
                 </span>
                 <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'nowrap' }}>
+                    <input
+                        type="password"
+                        value={adminToken}
+                        onChange={(e) => setAdminTokenInput(e.target.value)}
+                        placeholder="Admin Token"
+                        style={{ width: 120, fontSize: 11, padding: '2px 4px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--fg)', minWidth: 0 }}
+                    />
                     <input
                         type="number"
                         value={amount}
