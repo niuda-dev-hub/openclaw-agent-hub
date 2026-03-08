@@ -126,6 +126,26 @@ docker compose up -d --build
 AGENT_HUB_BACKEND_HOST_PORT=18000 AGENT_HUB_FRONTEND_HOST_PORT=15173 docker compose up -d --build
 ```
 
+### 仅拉取 Docker Hub 镜像部署（无需本地构建）
+
+如果你已将镜像发布到 Docker Hub，可直接使用：`docker-compose.pull.yml`
+
+```bash
+docker compose -f docker-compose.pull.yml pull
+docker compose -f docker-compose.pull.yml up -d
+```
+
+默认镜像：
+
+- 后端：`niuda123/openclaw-agent-hub:latest`
+- 前端：`niuda123/openclaw-agent-hub-frontend:latest`
+
+同样支持以下端口变量：
+
+- `AGENT_HUB_BACKEND_HOST_PORT`（默认 8000）
+- `AGENT_HUB_BACKEND_PORT`（默认 8000）
+- `AGENT_HUB_FRONTEND_HOST_PORT`（默认 5173）
+
 ## 文档导航
 
 - 中文文档入口：`docs/zh/README.md`
