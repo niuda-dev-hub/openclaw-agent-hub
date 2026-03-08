@@ -1,9 +1,12 @@
 from __future__ import annotations
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 import re
 import os
 import secrets
+import time
+import hmac
+import hashlib
 
 from .migrations import migrate
 from . import repo
@@ -48,6 +51,51 @@ from .schemas import (
 
 app = FastAPI(title="OpenClaw Agent Hub", version="0.1.0")
 
+_UI_AUTH_COOKIE = "agent_hub_ui_session"
+_UI_SESSION_TTL_SEC = int(os.getenv("AGENT_HUB_UI_SESSION_TTL_SEC", "43200"))  # 12h
+
+
+def _get_ui_password() -> str:
+    return os.getenv("AGENT_HUB_UI_PASSWORD", "").strip()
+
+
+def _is_strong_password(password: str) -> bool:
+    if len(password) < 12:
+        return False
+    has_upper = any(c.isupper() for c in password)
+    has_lower = any(c.islower() for c in password)
+    has_digit = any(c.isdigit() for c in password)
+    has_symbol = any(not c.isalnum() for c in password)
+    return has_upper and has_lower and has_digit and has_symbol
+
+
+def _get_ui_signing_secret() -> str:
+    explicit = os.getenv("AGENT_HUB_UI_SESSION_SECRET", "").strip()
+    if explicit:
+        return explicit
+    # fallback: use UI password as signing secret in simplified mode
+    return _get_ui_password()
+
+
+def _create_ui_session_token() -> str:
+    exp = int(time.time()) + _UI_SESSION_TTL_SEC
+    payload = str(exp)
+    sig = hmac.new(_get_ui_signing_secret().encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"{payload}.{sig}"
+
+
+def _verify_ui_session_token(token: str) -> bool:
+    if not token or "." not in token:
+        return False
+    exp_str, sig = token.split(".", 1)
+    if not exp_str.isdigit():
+        return False
+    exp = int(exp_str)
+    if exp < int(time.time()):
+        return False
+    expected_sig = hmac.new(_get_ui_signing_secret().encode("utf-8"), exp_str.encode("utf-8"), hashlib.sha256).hexdigest()
+    return secrets.compare_digest(sig, expected_sig)
+
 
 def _extract_admin_token(request: Request) -> str:
     """Extract admin token from supported headers.
@@ -81,11 +129,55 @@ def _require_admin_fund_token(request: Request) -> None:
 @app.on_event("startup")
 def _startup() -> None:
     migrate()
+    ui_password = _get_ui_password()
+    if ui_password and not _is_strong_password(ui_password):
+        raise RuntimeError(
+            "AGENT_HUB_UI_PASSWORD must be strong: min 12 chars + upper + lower + digit + symbol"
+        )
 
 
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "openclaw-agent-hub"}
+
+
+@app.get("/api/v0.1/auth/status")
+def api_auth_status(request: Request):
+    enabled = bool(_get_ui_password())
+    if not enabled:
+        return {"enabled": False, "authenticated": True}
+
+    token = request.cookies.get(_UI_AUTH_COOKIE, "")
+    return {"enabled": True, "authenticated": _verify_ui_session_token(token)}
+
+
+@app.post("/api/v0.1/auth/login")
+def api_auth_login(body: dict, response: Response):
+    expected = _get_ui_password()
+    if not expected:
+        raise HTTPException(status_code=503, detail="ui_auth_not_configured")
+
+    provided = str(body.get("password", "")).strip()
+    if not provided:
+        raise HTTPException(status_code=400, detail="password_required")
+    if not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail="invalid_password")
+
+    token = _create_ui_session_token()
+    response.set_cookie(
+        key=_UI_AUTH_COOKIE,
+        value=token,
+        max_age=_UI_SESSION_TTL_SEC,
+        httponly=True,
+        samesite="lax",
+    )
+    return {"ok": True}
+
+
+@app.post("/api/v0.1/auth/logout")
+def api_auth_logout(response: Response):
+    response.delete_cookie(_UI_AUTH_COOKIE)
+    return {"ok": True}
 
 
 @app.middleware("http")
