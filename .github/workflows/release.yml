@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag and pyproject version
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PYV=$(python -c "import pathlib,re; t=pathlib.Path('pyproject.toml').read_text(encoding='utf-8'); m=re.search(r'^version\\s*=\\s*\"([^\"]+)\"', t, re.M); print(m.group(1) if m else '')")
+          if [ -z "$PYV" ]; then
+            echo "Cannot find pyproject version" >&2
+            exit 1
+          fi
+          if [ "$TAG" != "$PYV" ]; then
+            echo "Tag v$TAG does not match pyproject version $PYV" >&2
+            exit 1
+          fi
+
+      - name: Generate release notes
+        id: notes
+        shell: bash
+        run: |
+          if [ -f CHANGELOG.md ]; then
+            awk 'BEGIN{flag=0} /^## \[/{if(flag) exit} /^## \[Unreleased\]/{next} /^## \[/ {flag=1} flag {print}' CHANGELOG.md > release_notes.txt || true
+          fi
+          if [ ! -s release_notes.txt ]; then
+            echo "No CHANGELOG slice found; fallback to auto notes." > release_notes.txt
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.txt
+          generate_release_notes: true
