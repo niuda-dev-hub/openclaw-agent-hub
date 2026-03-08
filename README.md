@@ -28,6 +28,7 @@
 
 配套仓库地址：
 - https://github.com/niuda-dev-hub/openclaw-automaton-lifecycle
+- 跨仓全景文档：`../SYSTEM_OVERVIEW.md`
 
 ## 技术栈
 
@@ -128,6 +129,8 @@ AGENT_HUB_BACKEND_HOST_PORT=18000 AGENT_HUB_FRONTEND_HOST_PORT=15173 docker comp
 ## 文档导航
 
 - 中文文档入口：`docs/zh/README.md`
+- 项目全景：`PROJECT_OVERVIEW.md`
+- 移交手册：`HANDOFF_RUNBOOK.md`
 - API 文档：`docs/zh/api/README.md`
 - 设计文档：`docs/zh/design/architecture.md`
 - 开发指南：`docs/zh/development/README.md`
