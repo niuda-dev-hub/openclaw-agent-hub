@@ -17,6 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       HAS_DOCKERHUB_CREDS: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
+      IMAGE_NAME: ${{ vars.DOCKERHUB_IMAGE_NAME != '' && vars.DOCKERHUB_IMAGE_NAME || format('{0}/openclaw-agent-hub', secrets.DOCKERHUB_USERNAME) }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +40,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            ${{ vars.DOCKERHUB_IMAGE_NAME != '' && vars.DOCKERHUB_IMAGE_NAME || format('{0}/openclaw-agent-hub', github.repository_owner) }}
+            ${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=ref,event=branch
