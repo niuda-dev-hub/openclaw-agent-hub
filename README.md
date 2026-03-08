@@ -76,6 +76,15 @@ uvicorn agent_hub.main:app --app-dir src --host 127.0.0.1 --port 8000 --reload
 - `SUPABASE_KEY`：启用 Supabase 时必需
 - `AGENT_HUB_ADMIN_FUND_TOKEN`：`wallet/fund` 管理注资接口鉴权 token（推荐生产环境必配）
 
+### WebUI 钱包注资说明
+
+前端 Agent 管理页中的“💸 打钱”按钮会调用 `/api/v0.1/agents/{agent_id}/wallet/fund`。
+
+- 该接口需要后端配置 `AGENT_HUB_ADMIN_FUND_TOKEN`
+- WebUI 侧也必须在钱包面板输入对应的 Admin Token，前端会通过 `X-Admin-Token` 请求头透传
+
+若未输入或 token 不匹配，后端会返回：`403 {"detail":"forbidden_admin_token"}`。
+
 ## 测试
 
 ```bash
