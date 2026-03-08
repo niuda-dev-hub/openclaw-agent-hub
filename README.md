@@ -132,9 +132,16 @@ AGENT_HUB_BACKEND_HOST_PORT=18000 AGENT_HUB_FRONTEND_HOST_PORT=15173 docker comp
 - 设计文档：`docs/zh/design/architecture.md`
 - 开发指南：`docs/zh/development/README.md`
 - 协作规范：`CONTRIBUTING.md`、`docs/zh/软件项目开发规范.md`
+- 版本策略：`VERSIONING.md`、`CHANGELOG.md`
 
 ## 安全说明
 
 - 本仓库不应提交任何明文凭据（token/密钥/私钥/密码）
 - 若发现历史泄漏，请先轮换凭据再处理公开发布
 - 公开仓库场景请优先使用 GitHub Secrets 管理敏感信息
+
+## 版本管理
+
+- 本仓库遵循 `VERSIONING.md` 中的统一版本策略（SemVer + Git Tag + CHANGELOG）
+- 发布 Tag 采用 `vX.Y.Z`，并要求与 `pyproject.toml` 的 `project.version` 严格一致
+- 发布说明见 `CHANGELOG.md`
