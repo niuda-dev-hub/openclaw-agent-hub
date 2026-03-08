@@ -13,6 +13,21 @@
 - Episodic Memory / SOP / Soul History 相关接口
 - Worker CLI（轮询执行与事件落库）
 
+## 配套项目关系
+
+本项目与 `openclaw-automaton-lifecycle` 是配套的双仓库架构：
+
+- `openclaw-agent-hub`（本仓库）是 **后端 SaaS / 权威状态中心**
+  - 对外提供 task/run/review/decision 与 automaton 相关 API
+  - 持久化 wallet、heartbeat、memory、soul 等状态
+
+- `openclaw-automaton-lifecycle` 是 **OpenClaw 插件 thin client**
+  - 在 Agent 侧注册工具并调用 Hub API
+  - 不承担中心状态持久化，依赖 Hub 做一致性与安全控制
+
+配套仓库地址：
+- https://github.com/niuda-dev-hub/openclaw-automaton-lifecycle
+
 ## 技术栈
 
 - Python 3.10+
@@ -69,7 +84,7 @@ pytest -q
 
 可选 Variables：
 - `DOCKERHUB_IMAGE_NAME`（示例：`niudadev/openclaw-agent-hub`）
-  - 未配置时默认：`${GITHUB_REPOSITORY_OWNER}/openclaw-agent-hub`
+  - 未配置时默认：`${DOCKERHUB_USERNAME}/openclaw-agent-hub`
 
 ## 文档导航
 
