@@ -1,6 +1,25 @@
 // 优先从 localStorage 读取 API 地址，实现动态切换
 const STORE_KEY = 'agent_hub_api_url';
 const BASE_URL = localStorage.getItem(STORE_KEY) || import.meta.env.VITE_API_URL || '';
+const ADMIN_TOKEN_KEY = 'agent_hub_admin_token';
+
+function buildHeaders(base?: Record<string, string>): Record<string, string> {
+  const headers = { ...(base || {}) };
+  const adminToken = localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+  if (adminToken) {
+    headers['X-Admin-Token'] = adminToken;
+  }
+  return headers;
+}
+
+export function setAdminToken(token: string) {
+  if (token) localStorage.setItem(ADMIN_TOKEN_KEY, token);
+  else localStorage.removeItem(ADMIN_TOKEN_KEY);
+}
+
+export function getAdminToken(): string {
+  return localStorage.getItem(ADMIN_TOKEN_KEY) || '';
+}
 
 /** 通用 GET 请求 */
 export async function apiGet<T>(path: string): Promise<T> {
@@ -20,7 +39,7 @@ export async function apiPost<T>(path: string, body?: unknown): Promise<T> {
   const res = await fetch(url, {
     method: 'POST',
     credentials: 'include',
-    headers: body !== undefined ? { 'Content-Type': 'application/json' } : {},
+    headers: buildHeaders(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
@@ -36,7 +55,7 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   const res = await fetch(url, {
     method: 'PATCH',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: buildHeaders({ 'Content-Type': 'application/json' }),
     body: JSON.stringify(body),
   })
   if (!res.ok) {
@@ -52,6 +71,7 @@ export async function apiDelete<T>(path: string): Promise<T> {
   const res = await fetch(url, {
     method: 'DELETE',
     credentials: 'include',
+    headers: buildHeaders(),
   })
   if (!res.ok) {
     const text = await res.text().catch(() => '')
