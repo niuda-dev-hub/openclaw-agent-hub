@@ -16,3 +16,4 @@ site
 backend.log
 tests
 docs
+docker-compose.yml
