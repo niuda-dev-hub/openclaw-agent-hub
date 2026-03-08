@@ -1,0 +1,30 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agent-hub-backend
+    environment:
+      AGENT_HUB_PORT: ${AGENT_HUB_BACKEND_PORT:-8000}
+      AGENT_HUB_UI_PASSWORD: ${AGENT_HUB_UI_PASSWORD:-}
+      AGENT_HUB_UI_SESSION_SECRET: ${AGENT_HUB_UI_SESSION_SECRET:-}
+      AGENT_HUB_ADMIN_FUND_TOKEN: ${AGENT_HUB_ADMIN_FUND_TOKEN:-}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+    ports:
+      - "${AGENT_HUB_BACKEND_HOST_PORT:-8000}:${AGENT_HUB_BACKEND_PORT:-8000}"
+    volumes:
+      - ./data:/data
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: agent-hub-frontend
+    environment:
+      BACKEND_UPSTREAM: backend:${AGENT_HUB_BACKEND_PORT:-8000}
+    depends_on:
+      - backend
+    ports:
+      - "${AGENT_HUB_FRONTEND_HOST_PORT:-5173}:80"
