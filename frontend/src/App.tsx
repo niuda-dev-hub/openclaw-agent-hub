@@ -12,6 +12,7 @@ import { ProjectDetail } from './pages/ProjectDetail'
 import { Admin } from './pages/Admin'
 import { I18nProvider, useI18n } from './i18n'
 import { ThemeProvider, useTheme } from './theme'
+import { useEffect, useState } from 'react'
 
 /** 包含语言/主题切换的顶栏 */
 function TopBar() {
@@ -110,6 +111,72 @@ function TopBar() {
 
 /** 带 Provider 的 App 根（需要在 Provider 内使用 useI18n） */
 function AppInner() {
+  const [checkingAuth, setCheckingAuth] = useState(true)
+  const [authEnabled, setAuthEnabled] = useState(false)
+  const [authed, setAuthed] = useState(false)
+  const [password, setPassword] = useState('')
+  const [authErr, setAuthErr] = useState('')
+
+  const base = localStorage.getItem('agent_hub_api_url') || import.meta.env.VITE_API_URL || ''
+
+  useEffect(() => {
+    fetch(`${base}/api/v0.1/auth/status`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(s => {
+        setAuthEnabled(Boolean(s.enabled))
+        setAuthed(Boolean(s.authenticated))
+        setCheckingAuth(false)
+      })
+      .catch(() => {
+        setCheckingAuth(false)
+      })
+  }, [base])
+
+  async function login() {
+    setAuthErr('')
+    try {
+      const res = await fetch(`${base}/api/v0.1/auth/login`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password }),
+      })
+      if (!res.ok) {
+        throw new Error(await res.text())
+      }
+      setAuthed(true)
+      setPassword('')
+    } catch (e) {
+      setAuthErr(String(e))
+    }
+  }
+
+  if (checkingAuth) {
+    return <div className="container"><div className="panel">Checking UI auth...</div></div>
+  }
+
+  if (authEnabled && !authed) {
+    return (
+      <div className="container" style={{ maxWidth: 520, marginTop: 60 }}>
+        <div className="panel" style={{ display: 'grid', gap: 12 }}>
+          <div className="h1" style={{ margin: 0 }}>🔐 Admin UI Login</div>
+          <div style={{ color: 'var(--muted)', fontSize: 13 }}>
+            请输入管理员强密码后进入管理界面。
+          </div>
+          <input
+            className="input"
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Enter admin password"
+          />
+          {authErr && <div className="error">{authErr}</div>}
+          <button className="btn" onClick={login}>登录</button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <TopBar />
