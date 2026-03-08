@@ -1,0 +1,28 @@
+services:
+  backend:
+    image: niuda123/openclaw-agent-hub:latest
+    container_name: agent-hub-backend
+    restart: unless-stopped
+    environment:
+      AGENT_HUB_PORT: ${AGENT_HUB_BACKEND_PORT:-8000}
+      AGENT_HUB_UI_PASSWORD: ${AGENT_HUB_UI_PASSWORD:-}
+      AGENT_HUB_UI_SESSION_SECRET: ${AGENT_HUB_UI_SESSION_SECRET:-}
+      AGENT_HUB_ADMIN_FUND_TOKEN: ${AGENT_HUB_ADMIN_FUND_TOKEN:-}
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-sqlite}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_KEY: ${SUPABASE_KEY:-}
+    ports:
+      - "${AGENT_HUB_BACKEND_HOST_PORT:-8000}:${AGENT_HUB_BACKEND_PORT:-8000}"
+    volumes:
+      - ./data:/data
+
+  frontend:
+    image: niuda123/openclaw-agent-hub-frontend:latest
+    container_name: agent-hub-frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_UPSTREAM: backend:${AGENT_HUB_BACKEND_PORT:-8000}
+    depends_on:
+      - backend
+    ports:
+      - "${AGENT_HUB_FRONTEND_HOST_PORT:-5173}:80"
